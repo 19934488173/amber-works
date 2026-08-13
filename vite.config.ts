@@ -5,6 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/amber-works/',
   plugins: [
     react(),
     tailwindcss(),
@@ -19,11 +20,11 @@ export default defineConfig({
         background_color: '#f6f8fb',
         display: 'standalone',
         orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
+        scope: '/amber-works/',
+        start_url: '/amber-works/',
         icons: [
           {
-            src: '/favicon.svg',
+            src: '/amber-works/favicon.svg',
             sizes: 'any',
             type: 'image/svg+xml',
             purpose: 'any maskable',
