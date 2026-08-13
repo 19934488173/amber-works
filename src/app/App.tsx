@@ -17,7 +17,7 @@ export default function App() {
   const isEditor = location.pathname.startsWith('/schedule')
   const isDetail = location.pathname.startsWith('/customer/')
   const hideChrome = isEditor || isDetail
-  const activeKey = location.pathname.startsWith('/calendar') || location.pathname === '/'
+  const activeKey = location.pathname.startsWith('/calendar')
     ? '/calendar'
     : location.pathname.startsWith('/customers') || location.pathname.startsWith('/customer')
       ? '/customers'
@@ -25,7 +25,7 @@ export default function App() {
         ? '/income'
         : location.pathname.startsWith('/settings')
           ? '/settings'
-          : '/'
+          : '/calendar'
 
   return (
     <ScheduleProvider>

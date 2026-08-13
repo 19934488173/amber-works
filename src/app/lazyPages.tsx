@@ -1,7 +1,6 @@
 import { lazy } from 'react'
 import { SpinLoading } from 'antd-mobile'
 
-export const HomePage = lazy(() => import('../pages/Home/HomePage').then((module) => ({ default: module.HomePage })))
 export const CalendarPage = lazy(() => import('../pages/Calendar/CalendarPage').then((module) => ({ default: module.CalendarPage })))
 export const CustomersPage = lazy(() => import('../pages/Customers/CustomersPage').then((module) => ({ default: module.CustomersPage })))
 export const IncomePage = lazy(() => import('../pages/Income/IncomePage').then((module) => ({ default: module.IncomePage })))

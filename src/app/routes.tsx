@@ -1,11 +1,10 @@
 import { Suspense } from 'react'
-import { createHashRouter } from 'react-router-dom'
+import { createHashRouter, Navigate } from 'react-router-dom'
 import App from './App'
 import {
   CalendarPage,
   CustomerDetailPage,
   CustomersPage,
-  HomePage,
   IncomePage,
   PageLoader,
   ScheduleEditorPage,
@@ -21,7 +20,7 @@ export const router = createHashRouter([
     path: '/',
     element: <App />,
     children: [
-      { index: true, element: withSuspense(<HomePage />) },
+      { index: true, element: <Navigate to="/calendar" replace /> },
       { path: 'calendar', element: withSuspense(<CalendarPage />) },
       { path: 'customers', element: withSuspense(<CustomersPage />) },
       { path: 'income', element: withSuspense(<IncomePage />) },

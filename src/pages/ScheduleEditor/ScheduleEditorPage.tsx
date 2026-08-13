@@ -18,7 +18,7 @@ type Props = {
 type DateField = 'date' | 'trialDate' | 'firstDepositDate' | 'trialDepositDate' | 'finalPaymentDate'
 
 const dateFieldClass =
-  'flex! items-center! justify-between! h-9! rounded-3! border-(--app-border)! bg-white/80! px-2.5! text-[13px]! font-normal! leading-none! text-(--app-text)!'
+  'profile-form__date-button flex! items-center! justify-between! min-h-11! rounded-3! border-(--app-border)! bg-white! px-3! text-base! font-normal! leading-tight! text-(--app-text)!'
 
 export const CustomerProfileForm = ({
   initialValues,
@@ -126,10 +126,10 @@ export const CustomerProfileForm = ({
 
           <div className="grid grid-cols-2 gap-2.5">
             <Form.Item label="开始时间" name="startTime">
-              <Input placeholder={serviceType === 'daily' ? '如 14:00' : '如 06:00'} type="time" />
+              <Input placeholder={serviceType === 'daily' ? '如 14:00' : '如 06:00'} inputMode="numeric" />
             </Form.Item>
             <Form.Item label="结束时间" name="endTime">
-              <Input placeholder="如 12:00" type="time" />
+              <Input placeholder="如 12:00" inputMode="numeric" />
             </Form.Item>
           </div>
 

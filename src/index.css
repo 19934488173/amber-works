@@ -1683,71 +1683,117 @@ p {
 .profile-form .adm-form-item-label {
   margin-bottom: 7px;
   color: var(--app-soft-muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   line-height: 1.3;
   letter-spacing: 0.01em;
 }
 
 .profile-form .adm-input {
-  min-height: 36px;
+  min-height: 44px;
   display: flex;
   align-items: center;
 }
 
 .profile-form .adm-input-element,
 .profile-form .adm-text-area-element {
-  min-height: 36px;
-  padding: 0 10px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--app-border);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.88);
-  font-size: 14px;
-  line-height: 1.3;
+  background: #ffffff;
+  box-shadow: 0 1px 0 rgba(113, 67, 77, 0.03);
+  color: var(--app-text);
+  font-size: 16px;
+  line-height: 1.4;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.profile-form input,
+.profile-form textarea,
+.profile-form button {
+  -webkit-border-radius: 12px;
 }
 
 .profile-form .adm-text-area-element {
   min-height: 72px;
-  padding-top: 8px;
-  padding-bottom: 8px;
+  padding-top: 10px;
+  padding-bottom: 10px;
   line-height: 1.45;
 }
 
+.profile-form .adm-input-element::placeholder,
+.profile-form .adm-text-area-element::placeholder {
+  color: #c8b8bc;
+}
+
 .profile-form .adm-selector {
-  --padding: 0 10px;
-  --gap: 8px;
-  ---gap: 8px;
-  ---gap-horizontal: 8px;
-  ---gap-vertical: 8px;
+  --padding: 0 12px;
+  --gap: 10px;
+  ---gap: 10px;
+  ---gap-horizontal: 10px;
+  ---gap-vertical: 10px;
 }
 
 .profile-form .adm-selector .adm-grid {
-  --gap: 8px;
+  --gap: 10px;
 }
 
 .profile-form .adm-selector-item {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 32px;
-  padding: 0 10px;
-  font-size: 12px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: #f7f1f2;
+  color: var(--app-text);
+  font-size: 14px;
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.2;
   overflow: visible;
 }
 
 .profile-form .adm-selector-item-active {
+  border-color: rgba(169, 63, 95, 0.2);
+  background: #f1e1e6;
+  color: var(--app-primary);
   font-weight: 700;
+}
+
+.profile-form .adm-selector-item .adm-selector-check-mark-wrapper {
+  right: -1px;
+  bottom: -1px;
+  width: 18px;
+  height: 18px;
+  color: var(--app-primary);
+}
+
+.profile-form .adm-selector-item .adm-selector-check-mark-wrapper > svg {
+  width: 18px;
+  height: 18px;
 }
 
 .profile-form .adm-form-item-child .adm-button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 36px;
-  font-size: 13px;
+  min-height: 44px;
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+  background: #ffffff;
+  color: var(--app-text);
+  font-size: 16px;
   font-weight: 400;
-  line-height: 1;
+  line-height: 1.2;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.profile-form__date-button.adm-button {
+  box-shadow: 0 1px 0 rgba(113, 67, 77, 0.03);
 }
 
 .profile-form__section {
