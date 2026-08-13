@@ -1764,16 +1764,7 @@ p {
 }
 
 .profile-form .adm-selector-item .adm-selector-check-mark-wrapper {
-  right: -1px;
-  bottom: -1px;
-  width: 18px;
-  height: 18px;
-  color: var(--app-primary);
-}
-
-.profile-form .adm-selector-item .adm-selector-check-mark-wrapper > svg {
-  width: 18px;
-  height: 18px;
+  display: none;
 }
 
 .profile-form .adm-form-item-child .adm-button {
