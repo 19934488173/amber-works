@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, Empty, Picker, Toast } from "antd-mobile";
 import { LeftOutline, PictureOutline, RightOutline } from "antd-mobile-icons";
+import { useSearchParams } from "react-router-dom";
 import { useScheduleStore } from "../../app/useScheduleStore";
 import { CalendarShareCard } from "../../components/CalendarShareCard/CalendarShareCard";
 import { ScheduleList } from "../../components/ScheduleList/ScheduleList";
@@ -8,6 +9,7 @@ import {
   addMonths,
   formatDateWithWeekday,
   formatYearMonth,
+  getDateKeyValue,
   getMonthDays,
   isSameMonth,
   setYearMonth,
@@ -58,15 +60,18 @@ const emptyDaySummary = (): DaySummary => ({
 });
 
 export const CalendarPage = () => {
-  const { schedules, updateStatus, removeSchedule, duplicateSchedule } =
-    useScheduleStore();
+  const { schedules, removeSchedule } = useScheduleStore();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [todayKey, setTodayKey] = useState(() => toDateKey(new Date()));
-  const [selectedDate, setSelectedDate] = useState(todayKey);
+  const [selectedDate, setSelectedDate] = useState(() =>
+    getDateKeyValue(searchParams.get("date")) ?? todayKey
+  );
   const [yearMonthPickerVisible, setYearMonthPickerVisible] = useState(false);
   const [sharePreview, setSharePreview] = useState<{
     dataUrl: string;
     fileName: string;
   } | null>(null);
+  const [isSharingMonth, setIsSharingMonth] = useState(false);
   const shareRef = useRef<HTMLDivElement>(null);
   const selectedDateObj = useMemo(() => {
     const [year, month, day] = selectedDate.split("-").map(Number);
@@ -115,14 +120,27 @@ export const CalendarPage = () => {
     return () => window.clearInterval(intervalId);
   }, []);
 
+  useEffect(() => {
+    const dateFromSearch = getDateKeyValue(searchParams.get("date"));
+    if (dateFromSearch && dateFromSearch !== selectedDate) {
+      setSelectedDate(dateFromSearch);
+    }
+  }, [searchParams, selectedDate]);
+
+  const selectDate = (dateKey: string) => {
+    setSelectedDate(dateKey);
+    setSearchParams({ date: dateKey }, { replace: true });
+  };
+
   const goPrevious = () =>
-    setSelectedDate(toDateKey(addMonths(selectedDateObj, -1)));
+    selectDate(toDateKey(addMonths(selectedDateObj, -1)));
   const goNext = () =>
-    setSelectedDate(toDateKey(addMonths(selectedDateObj, 1)));
+    selectDate(toDateKey(addMonths(selectedDateObj, 1)));
 
   const shareMonth = async () => {
-    if (!shareRef.current) return;
+    if (!shareRef.current || isSharingMonth) return;
 
+    setIsSharingMonth(true);
     try {
       const outcome = await createShareImage(
         shareRef.current,
@@ -146,6 +164,8 @@ export const CalendarPage = () => {
     } catch (error) {
       if ((error as Error).name === "AbortError") return;
       Toast.show("生成分享图片失败，请重试");
+    } finally {
+      setIsSharingMonth(false);
     }
   };
 
@@ -185,17 +205,18 @@ export const CalendarPage = () => {
             <button
               type="button"
               className="calendar-page__share-btn"
+              disabled={isSharingMonth}
               onClick={() => {
                 void shareMonth();
               }}
             >
               <PictureOutline fontSize={14} />
-              分享档期
+              {isSharingMonth ? "生成中" : "分享档期"}
             </button>
             <button
               type="button"
               className="calendar-page__today-btn"
-              onClick={() => setSelectedDate(todayKey)}
+              onClick={() => selectDate(todayKey)}
             >
               回到今天
             </button>
@@ -278,7 +299,7 @@ export const CalendarPage = () => {
                 }${count > 0 ? " has-booking" : ""}${
                   balanceCount > 0 ? " has-balance" : ""
                 }`}
-                onClick={() => setSelectedDate(dateKey)}
+                onClick={() => selectDate(dateKey)}
               >
                 <span className="calendar-page__cell-day">{day.getDate()}</span>
                 {paidAmount > 0 ? (
@@ -377,11 +398,7 @@ export const CalendarPage = () => {
           ) : (
             <ScheduleList
               schedules={selectedSchedules}
-              onComplete={(schedule) => updateStatus(schedule.id, "completed")}
               onDelete={confirmRemove}
-              onDuplicate={(schedule) =>
-                duplicateSchedule(schedule, selectedDate)
-              }
             />
           )}
         </div>
@@ -396,9 +413,7 @@ export const CalendarPage = () => {
         onConfirm={(value) => {
           const year = Number(value[0]);
           const monthIndex = Number(value[1]);
-          setSelectedDate(
-            toDateKey(setYearMonth(selectedDateObj, year, monthIndex))
-          );
+          selectDate(toDateKey(setYearMonth(selectedDateObj, year, monthIndex)));
           setYearMonthPickerVisible(false);
         }}
       />

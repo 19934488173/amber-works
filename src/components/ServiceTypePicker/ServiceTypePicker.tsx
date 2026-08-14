@@ -26,6 +26,11 @@ export const ServiceTypePicker = ({
 
   return (
     <div className="service-type-picker">
+      <div className="service-type-picker__intro">
+        <strong>服务类型</strong>
+        <span>选择跟妆或日常生活妆</span>
+      </div>
+
       <div className="service-type-picker__categories">
         {(['bridal', 'daily'] as const).map((key) => {
           const active = category === key

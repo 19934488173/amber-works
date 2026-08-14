@@ -1,25 +1,16 @@
 import Dexie, { type Table } from 'dexie'
-import type { AppSettings, Category, Schedule } from '../types/schedule'
-import { scheduleTypeOptions } from '../types/schedule'
+import type { AppSettings, Schedule } from '../types/schedule'
 
 class ScheduleDatabase extends Dexie {
   schedules!: Table<Schedule, string>
   settings!: Table<AppSettings, string>
-  categories!: Table<Category, string>
 
   constructor() {
-    super('personal-schedule-ledger')
+    super('kang-studio-ledger')
 
     this.version(1).stores({
-      schedules: 'id, date, status, type, updatedAt',
+      schedules: 'id, date, trialDate, status, serviceCategory, updatedAt',
       settings: 'id',
-      categories: 'id',
-    })
-
-    this.version(2).stores({
-      schedules: 'id, date, trialDate, status, type, updatedAt',
-      settings: 'id',
-      categories: 'id',
     })
   }
 }
@@ -32,16 +23,5 @@ export const ensureAppDefaults = async () => {
 
   if (!existingSettings) {
     await db.settings.put({ id: 'default', createdAt: now, updatedAt: now })
-  }
-
-  const existingCategories = await db.categories.count()
-  if (existingCategories === 0) {
-    await db.categories.bulkPut(
-      scheduleTypeOptions.map((option) => ({
-        id: option.value,
-        label: option.label,
-        color: option.color,
-      })),
-    )
   }
 }

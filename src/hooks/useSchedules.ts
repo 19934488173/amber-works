@@ -12,12 +12,6 @@ export const useSchedules = () => {
   const refresh = useCallback(async () => {
     try {
       setState('loading')
-      if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('clear') === '1') {
-        await scheduleRepository.clearAll()
-        const url = new URL(window.location.href)
-        url.searchParams.delete('clear')
-        window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
-      }
       await scheduleRepository.initialize()
       setSchedules(await scheduleRepository.list())
       setError(null)

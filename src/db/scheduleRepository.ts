@@ -21,6 +21,11 @@ const asPositiveNumber = (value: unknown) => {
   return Number.isFinite(next) && next > 0 ? next : undefined
 }
 
+const asNonZeroNumber = (value: unknown) => {
+  const next = Number(value)
+  return Number.isFinite(next) && next !== 0 ? next : undefined
+}
+
 const referenceImageGroups: ReferenceImageGroup[] = ['makeup', 'jewelry', 'outfit', 'trial']
 
 const asReferenceImageGroup = (value: unknown): ReferenceImageGroup =>
@@ -36,14 +41,13 @@ const normalizePaymentRecords = (records: unknown, createdAt: string): PaymentRe
       kind: asString(record.kind) as PaymentRecord['kind'],
       label: asString(record.label) || '收款',
       date: asDateKey(record.date) ?? '',
-      amount: Number(record.amount),
+      amount: asNonZeroNumber(record.amount) ?? 0,
       createdAt: asString(record.createdAt) ?? createdAt,
     }))
     .filter((record) =>
       ['first_deposit', 'trial_deposit', 'final_payment', 'other'].includes(record.kind)
       && dateKeyPattern.test(record.date)
-      && Number.isFinite(record.amount)
-      && record.amount > 0,
+      && record.amount !== 0,
     )
 }
 
@@ -60,7 +64,6 @@ const normalizeSchedule = (value: unknown): Schedule => {
   if (!serviceCategory || !serviceSubtype) throw new Error('备份文件包含无效客户类型')
 
   const status = asString(value.status) as Schedule['status'] | undefined
-  const type = asString(value.type) as Schedule['type'] | undefined
 
   return {
     id,
@@ -70,7 +73,6 @@ const normalizeSchedule = (value: unknown): Schedule => {
     date,
     startTime: asString(value.startTime),
     endTime: asString(value.endTime),
-    type: type ?? 'makeup',
     status: status ?? 'pending',
     customer: asString(value.customer),
     phone: asString(value.phone),
@@ -111,16 +113,6 @@ export const scheduleRepository = {
 
   async list() {
     return sortSchedules(await db.schedules.toArray())
-  },
-
-  async byDate(date: string) {
-    return sortSchedules(await db.schedules.where('date').equals(date).toArray())
-  },
-
-  async between(startDate: string, endDate: string) {
-    return sortSchedules(
-      await db.schedules.where('date').between(startDate, endDate, true, true).toArray(),
-    )
   },
 
   async get(id: string) {
@@ -170,7 +162,6 @@ export const scheduleRepository = {
       date,
       startTime: source.startTime,
       endTime: source.endTime,
-      type: source.type,
       status: 'pending',
       customer: source.customer,
       phone: source.phone,

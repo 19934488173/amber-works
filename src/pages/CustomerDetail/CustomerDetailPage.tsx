@@ -18,8 +18,10 @@ import type { ImageUploadItem } from "antd-mobile/es/components/image-uploader";
 import {
   CalendarOutline,
   CheckOutline,
+  DeleteOutline,
   EditSOutline,
   EnvironmentOutline,
+  MinusCircleOutline,
   PayCircleOutline,
   PhonebookOutline,
   PictureOutline,
@@ -66,7 +68,14 @@ import {
   getStatusLabel,
   isDailyMakeup,
 } from "../../types/schedule";
-import { formatCurrency, getBillableAmount, getPaidAmount, getPaymentEvents, getRemainingAmount } from "../../utils/statistics";
+import {
+  formatCurrency,
+  formatSignedCurrency,
+  getBillableAmount,
+  getPaidAmount,
+  getPaymentEvents,
+  getRemainingAmount,
+} from "../../utils/statistics";
 import { formatTimeRange } from "../../utils/date";
 import { toDateKey } from "../../utils/date";
 
@@ -79,14 +88,14 @@ type DetailTileProps = {
 
 const DetailTile = ({ icon, label, value, helper }: DetailTileProps) => (
   <div className="customer-detail__tile">
-    <p className="customer-detail__tile-label">
-      {icon}
-      {label}
-    </p>
-    <strong className="customer-detail__tile-value">{value}</strong>
-    {helper ? (
-      <span className="customer-detail__tile-helper">{helper}</span>
-    ) : null}
+    <div className="customer-detail__tile-icon">{icon}</div>
+    <div className="customer-detail__tile-content">
+      <p className="customer-detail__tile-label">{label}</p>
+      <strong className="customer-detail__tile-value">{value}</strong>
+      {helper ? (
+        <span className="customer-detail__tile-helper">{helper}</span>
+      ) : null}
+    </div>
   </div>
 );
 
@@ -100,7 +109,6 @@ const buildDraft = (
   date: schedule.date,
   startTime: schedule.startTime,
   endTime: schedule.endTime,
-  type: schedule.type,
   status: schedule.status,
   customer: schedule.customer,
   phone: schedule.phone,
@@ -132,61 +140,128 @@ const stageIndex = (stage: BrideStage) => {
   return index < 0 ? 0 : index;
 };
 
+type PaymentDialogMode = "receive" | "deduct";
+
 const PaymentDialogContent = ({
   schedule,
+  mode,
   onSubmit,
 }: {
   schedule: Schedule;
-  onSubmit: (values: { amount: number; kind: PaymentRecordKind; label: string; date: string }) => Promise<void>;
+  mode: PaymentDialogMode;
+  onSubmit: (values: {
+    amount: number;
+    kind: PaymentRecordKind;
+    label: string;
+    date: string;
+  }) => Promise<void>;
 }) => {
   const category = schedule.serviceCategory;
   const paymentKindOptions = getPaymentKindOptions(category);
-  const [form] = Form.useForm<{ amount?: string; kind?: PaymentRecordKind[]; label?: string }>();
+  const [form] = Form.useForm<{
+    amount?: string;
+    kind?: PaymentRecordKind[];
+    label?: string;
+  }>();
   const [date, setDate] = useState(() => new Date());
   const [dateVisible, setDateVisible] = useState(false);
+  const remaining = getRemainingAmount(schedule);
+  const paid = getPaidAmount(schedule);
+  const isDeduction = mode === "deduct";
 
   return (
     <>
       <Form
+        className={`payment-dialog-form${isDeduction ? " is-deduction" : ""}`}
         form={form}
         layout="vertical"
-        initialValues={{ kind: ["final_payment"] }}
+        initialValues={{ kind: [isDeduction ? "other" : "final_payment"] }}
         onFinish={async (values) => {
           const amount = Number(values.amount);
-          const kind = values.kind?.[0] ?? "other";
+          const kind = isDeduction ? "other" : values.kind?.[0] ?? "other";
           if (!Number.isFinite(amount) || amount <= 0) {
             Toast.show("请输入有效金额");
             return;
           }
           await onSubmit({
-            amount,
+            amount: isDeduction ? -amount : amount,
             kind,
-            label: values.label?.trim() || getPaymentKindLabel(kind, category),
+            label:
+              values.label?.trim() ||
+              (isDeduction ? "冲减" : getPaymentKindLabel(kind, category)),
             date: toDateKey(date),
           });
           Dialog.clear();
         }}
         footer={
-          <Button block color="primary" onClick={() => form.submit()}>
-            确认添加
-          </Button>
+          <div className="payment-dialog-form__actions">
+            <Button
+              block
+              fill="none"
+              className="payment-dialog-form__cancel"
+              onClick={() => Dialog.clear()}
+            >
+              取消
+            </Button>
+            <Button
+              block
+              color="primary"
+              className="payment-dialog-form__submit"
+              onClick={() => form.submit()}
+            >
+              {isDeduction ? "确认冲减" : "确认添加"}
+            </Button>
+          </div>
         }
       >
-        <p className="mb-4 text-[13px] text-(--app-muted)">
-          {getCustomerName(schedule)} 当前待收{" "}
-          {formatCurrency(getRemainingAmount(schedule))}
-        </p>
-        <Form.Item label="收款明目" name="kind">
-          <Selector columns={2} options={paymentKindOptions} />
-        </Form.Item>
-        <Form.Item label="自定义明目" name="label">
-          <Input placeholder="如：试妆定金 / 复定款 / 妈妈妆加收" />
+        <div className="payment-dialog-form__header">
+          <span>{isDeduction ? "ADJUSTMENT" : "PAYMENT"}</span>
+          <h2>{isDeduction ? "记减 / 冲减账目" : "添加收款记录"}</h2>
+        </div>
+        <div className="payment-dialog-form__summary">
+          <div>
+            <span>当前客户</span>
+            <strong>{getCustomerName(schedule)}</strong>
+          </div>
+          <div>
+            <span>{isDeduction ? "已收金额" : "待收金额"}</span>
+            <strong>{formatCurrency(isDeduction ? paid : remaining)}</strong>
+          </div>
+        </div>
+        {isDeduction ? null : (
+          <Form.Item
+            label="收款明目"
+            name="kind"
+            className="payment-dialog-form__kind"
+          >
+            <Selector columns={2} options={paymentKindOptions} />
+          </Form.Item>
+        )}
+        <Form.Item label={isDeduction ? "冲减说明" : "自定义明目"} name="label">
+          <Input
+            placeholder={
+              isDeduction
+                ? "如：退定金 / 退款 / 输入错误冲减"
+                : "如：试妆定金 / 复定款 / 妈妈妆加收"
+            }
+          />
         </Form.Item>
         <Form.Item label="收款日期">
-          <Button block fill="outline" onClick={() => setDateVisible(true)}>{date.toLocaleDateString("zh-CN")}</Button>
+          <Button
+            block
+            fill="none"
+            className="payment-dialog-form__date-btn"
+            onClick={() => setDateVisible(true)}
+          >
+            <strong>{date.toLocaleDateString("zh-CN")}</strong>
+          </Button>
         </Form.Item>
-        <Form.Item label="收款金额" name="amount">
-          <Input placeholder="例如：1500" type="number" inputMode="decimal" />
+        <Form.Item label={isDeduction ? "冲减金额" : "收款金额"} name="amount">
+          <Input
+            placeholder={isDeduction ? "例如：300" : "例如：1500"}
+            type="number"
+            inputMode="decimal"
+          />
         </Form.Item>
       </Form>
       <DatePicker
@@ -237,7 +312,8 @@ const NoteDialogContent = ({
 export const CustomerDetailPage = () => {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { schedules, state, updateSchedule } = useScheduleStore();
+  const { schedules, state, updateSchedule, removeSchedule } =
+    useScheduleStore();
   const [editing, setEditing] = useState(false);
   const schedule = useMemo(
     () => schedules.find((item) => item.id === id),
@@ -272,7 +348,9 @@ export const CustomerDetailPage = () => {
   const daily = isDailyMakeup(schedule);
   const subtypeLabel = getServiceSubtypeLabel(schedule.serviceSubtype);
   const categoryLabel = getServiceCategoryLabel(schedule.serviceCategory);
-  const serviceDayTitle = daily ? "预约时间" : getBridalServiceSlotTitle(schedule.serviceSubtype as BridalSubtype);
+  const serviceDayTitle = daily
+    ? "预约时间"
+    : getBridalServiceSlotTitle(schedule.serviceSubtype as BridalSubtype);
   const totalAmount = getBillableAmount(schedule);
   const paidAmount = getPaidAmount(schedule);
   const remainingAmount = getRemainingAmount(schedule);
@@ -323,16 +401,21 @@ export const CustomerDetailPage = () => {
     });
   };
 
-  const addPayment = () => {
+  const openPaymentDialog = (mode: PaymentDialogMode) => {
     Dialog.show({
-      title: "添加收款记录",
+      className: "customer-payment-dialog",
+      bodyClassName: "customer-payment-dialog__body",
       content: (
         <PaymentDialogContent
           schedule={schedule}
+          mode={mode}
           onSubmit={async ({ amount, kind, label, date }) => {
+            const isDeduction = amount < 0;
             const rest = getRemainingAmount(schedule);
-            const nextAmount = Math.min(amount, rest || amount);
-            const willSettle = rest > 0 && nextAmount >= rest;
+            const nextAmount = isDeduction
+              ? amount
+              : Math.min(amount, rest || amount);
+            const willSettle = !isDeduction && rest > 0 && nextAmount >= rest;
             await updateDraft({
               paymentRecords: [
                 ...(schedule.paymentRecords ?? []),
@@ -345,15 +428,42 @@ export const CustomerDetailPage = () => {
                   createdAt: new Date().toISOString(),
                 },
               ],
-              brideStage:
-                willSettle ? "completed" : schedule.brideStage,
+              brideStage: willSettle ? "completed" : schedule.brideStage,
               status: willSettle ? "completed" : schedule.status,
             });
-            Toast.show("已添加收款记录");
+            Toast.show(isDeduction ? "已记录冲减" : "已添加收款");
           }}
         />
       ),
       closeOnMaskClick: true,
+    });
+  };
+
+  const removePaymentRecord = (recordId?: string) => {
+    if (!recordId) return;
+    void Dialog.confirm({
+      content: "删除这笔账目流水？此操作不可恢复。",
+      confirmText: "删除",
+      onConfirm: async () => {
+        await updateDraft({
+          paymentRecords: schedule.paymentRecords.filter(
+            (record) => record.id !== recordId
+          ),
+        });
+        Toast.show("已删除流水");
+      },
+    });
+  };
+
+  const confirmDeleteSchedule = () => {
+    void Dialog.confirm({
+      content: `删除「${schedule.customer || schedule.title}」？客户资料、图片和账目都会一起删除。`,
+      confirmText: "删除",
+      onConfirm: async () => {
+        await removeSchedule(schedule.id);
+        Toast.show("已删除档期");
+        navigate("/calendar", { replace: true });
+      },
     });
   };
 
@@ -388,7 +498,7 @@ export const CustomerDetailPage = () => {
   return (
     <div className="min-h-dvh bg-(--app-bg)">
       <NavBar
-        className="sticky top-0 z-10 border-b border-(--app-border) bg-white"
+        className="customer-detail__navbar sticky top-0 z-10 border-b border-(--app-border) bg-white"
         onBack={() => navigate(-1)}
       >
         客户档案
@@ -396,187 +506,257 @@ export const CustomerDetailPage = () => {
 
       <div className="customer-detail">
         <section className="customer-detail__hero">
-          <div className="customer-detail__avatar">
-            {getInitial(schedule)}
+          <div className="customer-detail__hero-top">
+            <div className="customer-detail__hero-heading">
+              <span className="customer-detail__eyebrow">CUSTOMER PROFILE</span>
+              <span className="customer-detail__hero-caption">客户档案</span>
+            </div>
+            <button
+              type="button"
+              className="customer-detail__edit-btn"
+              onClick={() => setEditing(true)}
+              aria-label="编辑客户资料"
+            >
+              <EditSOutline fontSize={15} />
+              编辑
+            </button>
           </div>
-          <div className="min-w-0">
-            <h1 className="customer-detail__name">
-              {getCustomerName(schedule)}
-            </h1>
-            <p className="mt-1 text-[12px] font-semibold text-(--app-primary)">
-              {categoryLabel} · {subtypeLabel}
-            </p>
-            {schedule.phone ? (
-              <p className="customer-detail__phone">
-                <PhonebookOutline fontSize={14} />
-                {schedule.phone}
+          <div className="customer-detail__identity">
+            <div className="customer-detail__avatar">
+              {getInitial(schedule)}
+            </div>
+            <div className="min-w-0">
+              <div className="customer-detail__name-row">
+                <h1 className="customer-detail__name">
+                  {getCustomerName(schedule)}
+                </h1>
+                <span
+                  className={`customer-detail__status-pill${
+                    daily ? " is-daily" : ""
+                  }`}
+                >
+                  {daily
+                    ? getStatusLabel(schedule.status)
+                    : stageDisplay[stage].label}
+                </span>
+              </div>
+              <p className="customer-detail__service">
+                {categoryLabel} · {subtypeLabel}
               </p>
-            ) : null}
+              {schedule.phone ? (
+                <p className="customer-detail__phone">
+                  <PhonebookOutline fontSize={14} />
+                  {schedule.phone}
+                </p>
+              ) : null}
+            </div>
           </div>
-          <button
-            type="button"
-            className="customer-detail__edit-btn"
-            onClick={() => setEditing(true)}
-          >
-            <EditSOutline fontSize={14} />
-            编辑资料
-          </button>
+          <div className="customer-detail__hero-summary">
+            <div>
+              <span>服务日期</span>
+              <strong>{formatCompactDate(schedule.date)}</strong>
+            </div>
+            <div>
+              <span>{daily ? "预约状态" : "档期金额"}</span>
+              <strong>
+                {daily
+                  ? getStatusLabel(schedule.status)
+                  : formatCurrency(totalAmount)}
+              </strong>
+            </div>
+            <div>
+              <span>{daily ? "待收款" : "当前阶段"}</span>
+              <strong>
+                {daily
+                  ? formatCurrency(remainingAmount)
+                  : stageDisplay[stage].shortLabel}
+              </strong>
+            </div>
+          </div>
         </section>
 
         {!daily && (
-        <section className="customer-detail__card">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="customer-detail__section-title">当前进度</h2>
-              <p className="customer-detail__section-desc">
-                {stageDisplay[stage].helper}
-              </p>
+          <section className="customer-detail__card">
+            <div className="customer-detail__section-head">
+              <div>
+                <span className="customer-detail__section-kicker">
+                  服务进度
+                </span>
+                <h2 className="customer-detail__section-title">当前进度</h2>
+                <p className="customer-detail__section-desc">
+                  {stageDisplay[stage].helper}
+                </p>
+              </div>
+              <span className="customer-detail__section-meta customer-detail__section-meta--progress">
+                {currentStageIndex + 1} / {stageFlow.length}
+              </span>
             </div>
-            <span className="customer-detail__section-meta">
-              {currentStageIndex + 1} / {stageFlow.length}
-            </span>
-          </div>
 
-          <div className="mt-4 flex">
-            {stageFlow.map((item, index) => {
-              const done = index <= currentStageIndex;
-              const isLast = index === stageFlow.length - 1;
+            <div className="mt-4 flex">
+              {stageFlow.map((item, index) => {
+                const done = index <= currentStageIndex;
+                const isLast = index === stageFlow.length - 1;
 
-              return (
-                <div key={item} className="flex min-w-0 flex-1 flex-col items-center">
-                  <div className="flex w-full items-center">
-                    <div
-                      className={`h-0.5 flex-1 rounded-full ${
-                        index === 0
-                          ? "invisible"
-                          : index <= currentStageIndex
+                return (
+                  <div
+                    key={item}
+                    className="flex min-w-0 flex-1 flex-col items-center"
+                  >
+                    <div className="flex w-full items-center">
+                      <div
+                        className={`h-0.5 flex-1 rounded-full ${
+                          index === 0
+                            ? "invisible"
+                            : index <= currentStageIndex
                             ? "bg-(--app-primary)"
                             : "bg-(--app-border)"
-                      }`}
-                    />
-                    <div
-                      className={`relative z-10 grid h-6 w-6 shrink-0 place-items-center rounded-full border border-solid text-[11px] ${
-                        done
-                          ? "border-(--app-primary) bg-(--app-primary) text-white"
-                          : "border-(--app-border) bg-white text-(--app-muted)"
+                        }`}
+                      />
+                      <div
+                        className={`relative z-10 grid h-6 w-6 shrink-0 place-items-center rounded-full border border-solid text-[11px] ${
+                          done
+                            ? "border-(--app-primary) bg-(--app-primary) text-white"
+                            : "border-(--app-border) bg-white text-(--app-muted)"
+                        }`}
+                      >
+                        {done ? <CheckOutline fontSize={12} /> : index + 1}
+                      </div>
+                      <div
+                        className={`h-0.5 flex-1 rounded-full ${
+                          isLast
+                            ? "invisible"
+                            : index < currentStageIndex
+                            ? "bg-(--app-primary)"
+                            : "bg-(--app-border)"
+                        }`}
+                      />
+                    </div>
+                    <span
+                      className={`customer-detail__step-label ${
+                        done ? "is-done" : "is-pending"
                       }`}
                     >
-                      {done ? <CheckOutline fontSize={12} /> : index + 1}
-                    </div>
-                    <div
-                      className={`h-0.5 flex-1 rounded-full ${
-                        isLast
-                          ? "invisible"
-                          : index < currentStageIndex
-                            ? "bg-(--app-primary)"
-                            : "bg-(--app-border)"
-                      }`}
-                    />
+                      {stageDisplay[item].label}
+                    </span>
                   </div>
-                  <span
-                    className={`customer-detail__step-label ${
-                      done ? "is-done" : "is-pending"
-                    }`}
-                  >
-                    {stageDisplay[item].label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
 
-          <Button
-            block
-            color="primary"
-            className="customer-detail__action-btn mt-4!"
-            disabled={!currentNextStage}
-            onClick={advanceStage}
-          >
-            <span className="customer-detail__action-btn-content">
-              {currentNextStage ? (
-                <>
-                  推进到「{stageDisplay[currentNextStage].label}」
-                  <RightOutline fontSize={14} />
-                </>
-              ) : (
-                "流程已完成"
-              )}
-            </span>
-          </Button>
-        </section>
+            <Button
+              block
+              color="primary"
+              className="customer-detail__action-btn mt-4!"
+              disabled={!currentNextStage}
+              onClick={advanceStage}
+            >
+              <span className="customer-detail__action-btn-content">
+                {currentNextStage ? (
+                  <>
+                    推进到「{stageDisplay[currentNextStage].label}」
+                    <RightOutline fontSize={14} />
+                  </>
+                ) : (
+                  "流程已完成"
+                )}
+              </span>
+            </Button>
+          </section>
         )}
 
-        <section className="customer-detail__tile-grid">
-          {daily ? (
-            <>
-              <DetailTile
-                icon={<CalendarOutline />}
-                label="预约时间"
-                value={formatCompactDate(schedule.date)}
-                helper={formatTimeRange(schedule)}
-              />
-              <DetailTile
-                icon={<CalendarOutline />}
-                label="档期状态"
-                value={getStatusLabel(schedule.status)}
-                helper="当前预约状态"
-              />
-            </>
-          ) : (
-            <>
-              <DetailTile
-                icon={<CalendarOutline />}
-                label="试妆预约"
-                value={
-                  schedule.trialDate
-                    ? formatCompactDate(schedule.trialDate)
-                    : "未约定"
-                }
-                helper={
-                  schedule.trialDate
-                    ? formatTimeRange({
-                      startTime: schedule.trialStartTime,
-                      endTime: schedule.trialEndTime,
-                    })
-                    : "待安排"
-                }
-              />
-              <DetailTile
-                icon={<CalendarOutline />}
-                label={serviceDayTitle}
-                value={formatCompactDate(schedule.date)}
-                helper={formatTimeRange(schedule)}
-              />
-              <DetailTile
-                icon={<ShopbagOutline />}
-                label="服装套数"
-                value={`${schedule.outfitCount ?? 0} 套`}
-                helper="含造型切换"
-              />
-              <DetailTile
-                icon={<StarOutline />}
-                label="饰品"
-                value={getJewelryNeedLabel(schedule.jewelryNeed)}
-                helper={schedule.jewelryItems || "未记录明细"}
-              />
-            </>
-          )}
-        </section>
-
-        {schedule.location ? (
-          <div className="customer-detail__location">
-            <EnvironmentOutline />
-            <span>{schedule.location}</span>
+        <section className="customer-detail__schedule-panel">
+          <div className="customer-detail__panel-head">
+            <div>
+              <span className="customer-detail__section-kicker">
+                MAKEUP PLAN
+              </span>
+              <h2 className="customer-detail__subsection-title">服务安排</h2>
+            </div>
+            <span>
+              {daily ? getStatusLabel(schedule.status) : serviceDayTitle}
+            </span>
           </div>
-        ) : null}
+
+          <div className="customer-detail__tile-grid">
+            {daily ? (
+              <>
+                <DetailTile
+                  icon={<CalendarOutline />}
+                  label="预约时间"
+                  value={formatCompactDate(schedule.date)}
+                  helper={formatTimeRange(schedule)}
+                />
+                <DetailTile
+                  icon={<CalendarOutline />}
+                  label="档期状态"
+                  value={getStatusLabel(schedule.status)}
+                  helper="当前预约状态"
+                />
+              </>
+            ) : (
+              <>
+                <DetailTile
+                  icon={<CalendarOutline />}
+                  label="试妆预约"
+                  value={
+                    schedule.trialDate
+                      ? formatCompactDate(schedule.trialDate)
+                      : "未约定"
+                  }
+                  helper={
+                    schedule.trialDate
+                      ? formatTimeRange({
+                          startTime: schedule.trialStartTime,
+                          endTime: schedule.trialEndTime,
+                        })
+                      : "待安排"
+                  }
+                />
+                <DetailTile
+                  icon={<CalendarOutline />}
+                  label={serviceDayTitle}
+                  value={formatCompactDate(schedule.date)}
+                  helper={formatTimeRange(schedule)}
+                />
+                <DetailTile
+                  icon={<ShopbagOutline />}
+                  label="服装套数"
+                  value={`${schedule.outfitCount ?? 0} 套`}
+                  helper="含造型切换"
+                />
+                <DetailTile
+                  icon={<StarOutline />}
+                  label="饰品"
+                  value={getJewelryNeedLabel(schedule.jewelryNeed)}
+                  helper={schedule.jewelryItems || "未记录明细"}
+                />
+              </>
+            )}
+          </div>
+
+          {schedule.location ? (
+            <div className="customer-detail__location">
+              <EnvironmentOutline />
+              <span>{schedule.location}</span>
+            </div>
+          ) : null}
+        </section>
 
         <section className="customer-detail__card">
           <div className="customer-detail__card-head">
-            <h2 className="customer-detail__section-title">
-              <PictureOutline className="text-(--app-primary)" />
-              需求备注
-            </h2>
-            <button type="button" className="customer-detail__text-btn" onClick={editNote}>
+            <div>
+              <span className="customer-detail__section-kicker">沟通记录</span>
+              <h2 className="customer-detail__section-title">
+                <PictureOutline className="text-(--app-primary)" />
+                需求备注
+              </h2>
+            </div>
+            <button
+              type="button"
+              className="customer-detail__text-btn"
+              onClick={editNote}
+              aria-label="编辑需求备注"
+            >
               <EditSOutline fontSize={14} />
               编辑
             </button>
@@ -587,16 +767,32 @@ export const CustomerDetailPage = () => {
         </section>
 
         <section className="customer-detail__images">
-          <h2 className="customer-detail__subsection-title">
-            需求参考图 · 试妆记录
-          </h2>
+          <div className="customer-detail__section-intro">
+            <div>
+              <span className="customer-detail__section-kicker">视觉资料</span>
+              <h2 className="customer-detail__subsection-title">
+                需求参考图 · 试妆记录
+              </h2>
+            </div>
+            <span className="customer-detail__section-count">
+              {getReferenceImages(schedule, "makeup").length +
+                getReferenceImages(schedule, "jewelry").length +
+                getReferenceImages(schedule, "outfit").length +
+                getReferenceImages(schedule, "trial").length}{" "}
+              张
+            </span>
+          </div>
           {referenceImageGroups.map((group) => {
             const images = getReferenceImages(schedule, group.value);
             return (
               <div key={group.value} className="customer-detail__image-group">
                 <div className="customer-detail__image-head">
-                  <h3 className="customer-detail__image-title">{group.title}</h3>
-                  <span className="customer-detail__image-hint">{group.hint}</span>
+                  <h3 className="customer-detail__image-title">
+                    {group.title}
+                  </h3>
+                  <span className="customer-detail__image-hint">
+                    {group.hint}
+                  </span>
                 </div>
                 <ImageUploader
                   value={toUploadItems(images)}
@@ -611,10 +807,12 @@ export const CustomerDetailPage = () => {
                           name: file.name,
                           createdAt: new Date().toISOString(),
                         },
-                      }
+                      };
                     } catch (error) {
-                      Toast.show(error instanceof Error ? error.message : "图片处理失败")
-                      throw error
+                      Toast.show(
+                        error instanceof Error ? error.message : "图片处理失败"
+                      );
+                      throw error;
                     }
                   }}
                   onChange={(items) => {
@@ -635,9 +833,10 @@ export const CustomerDetailPage = () => {
         <section className="customer-detail__card">
           <div className="customer-detail__money-head">
             <div>
+              <span className="customer-detail__section-kicker">收款记录</span>
               <h2 className="customer-detail__section-title">账目</h2>
               <p className="customer-detail__section-desc">
-                总价 {formatCurrency(totalAmount)} · 已收{" "}
+                总价 {formatCurrency(totalAmount)} · 已收
                 {formatCurrency(paidAmount)}
               </p>
             </div>
@@ -656,10 +855,15 @@ export const CustomerDetailPage = () => {
           <div className="customer-detail__payment-list">
             {payments.map((payment) => (
               <div
-                key={payment.id ?? `${payment.type}-${payment.date}-${payment.amount}`}
-                className="customer-detail__payment-item"
+                key={
+                  payment.id ??
+                  `${payment.type}-${payment.date}-${payment.amount}`
+                }
+                className={`customer-detail__payment-item${
+                  payment.amount < 0 ? " is-negative" : ""
+                }`}
               >
-                <div>
+                <div className="customer-detail__payment-main">
                   <strong className="customer-detail__payment-label">
                     {payment.label}
                   </strong>
@@ -667,23 +871,55 @@ export const CustomerDetailPage = () => {
                     {payment.date}
                   </span>
                 </div>
-                <span className="customer-detail__payment-amount">
-                  +{formatCurrency(payment.amount)}
-                </span>
+                <div className="customer-detail__payment-side">
+                  <span className="customer-detail__payment-amount">
+                    {formatSignedCurrency(payment.amount)}
+                  </span>
+                  <button
+                    type="button"
+                    className="customer-detail__payment-delete"
+                    onClick={() => removePaymentRecord(payment.id)}
+                    aria-label={`删除${payment.label}流水`}
+                  >
+                    <DeleteOutline fontSize={14} />
+                    删除
+                  </button>
+                </div>
               </div>
             ))}
           </div>
-          <Button
-            block
-            fill="outline"
-            className="customer-detail__action-btn mt-3! border-dashed! border-(--app-primary)! text-(--app-primary)!"
-            onClick={addPayment}
+          <div className="customer-detail__money-actions">
+            <Button
+              block
+              fill="outline"
+              className="customer-detail__action-btn border-dashed! border-(--app-primary)! text-(--app-primary)!"
+              onClick={() => openPaymentDialog("receive")}
+            >
+              <span className="customer-detail__action-btn-content">
+                <PayCircleOutline fontSize={16} />
+                添加收款
+              </span>
+            </Button>
+            <Button
+              block
+              fill="outline"
+              className="customer-detail__action-btn customer-detail__deduct-btn"
+              onClick={() => openPaymentDialog("deduct")}
+            >
+              <span className="customer-detail__action-btn-content">
+                <MinusCircleOutline fontSize={16} />
+                记减/冲减
+              </span>
+            </Button>
+          </div>
+          <button
+            type="button"
+            className="customer-detail__delete-schedule"
+            onClick={confirmDeleteSchedule}
           >
-            <span className="customer-detail__action-btn-content">
-              <PayCircleOutline fontSize={16} />
-              添加收款记录
-            </span>
-          </Button>
+            <DeleteOutline fontSize={15} />
+            删除档期
+          </button>
         </section>
       </div>
     </div>

@@ -1,12 +1,6 @@
 import { Tag } from 'antd-mobile'
-import type { BrideStage, ScheduleStatus } from '../../types/schedule'
-import { getBrideStageLabel, getBrideStageTone, getStatusLabel, getStatusTone } from '../../types/schedule'
-
-export const StatusBadge = ({ status }: { status: ScheduleStatus }) => (
-  <Tag color={getStatusTone(status)} round>
-    {getStatusLabel(status)}
-  </Tag>
-)
+import type { BrideStage } from '../../types/schedule'
+import { getBrideStageLabel, getBrideStageTone } from '../../types/schedule'
 
 export const BrideStageBadge = ({ stage }: { stage: BrideStage }) => (
   <Tag color={getBrideStageTone(stage)} round>

@@ -66,7 +66,7 @@ export const getCustomerName = (schedule: Pick<Schedule, 'customer' | 'title'>) 
 
 export const getInitial = (schedule: Pick<Schedule, 'customer' | 'title'>) => getCustomerName(schedule).slice(0, 1)
 
-export const getDaysUntil = (dateKey: string, todayKey = getTodayKey()) => {
+const getDaysUntil = (dateKey: string, todayKey = getTodayKey()) => {
   const diff = parseDateKey(dateKey).getTime() - parseDateKey(todayKey).getTime()
   return Math.ceil(diff / DAY_MS)
 }
@@ -82,18 +82,6 @@ export const formatCompactDate = (dateKey: string) => {
   const date = parseDateKey(dateKey)
   return `${date.getMonth() + 1}月${date.getDate()}日`
 }
-
-export const formatWeekday = (dateKey: string) => {
-  const weekday = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][parseDateKey(dateKey).getDay()]
-  return weekday
-}
-
-export const getCustomersByStage = (schedules: Schedule[], stageFilter: 'all' | BrideStage) =>
-  schedules.filter((schedule) => {
-    if (schedule.status === 'cancelled') return false
-    if (stageFilter === 'all') return true
-    return normalizeStage(getScheduleBrideStage(schedule)) === stageFilter
-  })
 
 export const getReferenceImages = (schedule: Schedule, group: ReferenceImageGroup) =>
   (schedule.referenceImages ?? []).filter((image) => image.group === group)
@@ -233,6 +221,10 @@ const paymentLabels = {
   },
 } as const
 
+const stagePaymentKinds: PaymentRecord['kind'][] = ['first_deposit', 'trial_deposit', 'final_payment']
+
+const isStagePaymentKind = (kind: PaymentRecord['kind']) => stagePaymentKinds.includes(kind)
+
 const createPaymentRecord = (
   kind: PaymentRecord['kind'],
   label: string,
@@ -292,7 +284,7 @@ const paymentRecordsFromForm = (
 
   return [
     ...records,
-    ...existingRecords.filter((record) => record.kind === 'other'),
+    ...existingRecords.filter((record) => !isStagePaymentKind(record.kind)),
   ]
 }
 
@@ -325,7 +317,6 @@ export const draftFromForm = (values: CustomerFormValues, existing?: Schedule): 
     date,
     startTime: values.startTime?.trim() || existing?.startTime || (isDaily ? undefined : '06:00'),
     endTime: values.endTime?.trim() || existing?.endTime,
-    type: isDaily ? 'shoot' : 'makeup',
     status: isDaily ? (getScheduleStatusValue(values.status) ?? existing?.status ?? 'confirmed') : stageToStatus(stage ?? 'inquiry'),
     customer: values.customer?.trim() || existing?.customer || '新客户',
     phone: values.phone?.trim() || undefined,
@@ -363,12 +354,12 @@ export const getMonthlyIncomeRows = (schedules: Schedule[], anchorDate = new Dat
 
   let max = 1
   for (const row of rows) {
-    if (row.paid > max) max = row.paid
+    if (Math.abs(row.paid) > max) max = Math.abs(row.paid)
   }
 
   return rows.map((row) => ({
     ...row,
-    percent: Math.max(14, Math.round((row.paid / max) * 100)),
+    percent: Math.max(14, Math.round((Math.abs(row.paid) / max) * 100)),
   }))
 }
 

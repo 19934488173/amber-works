@@ -16,14 +16,19 @@ export const parseDateKey = (dateKey: string) => {
   return new Date(year, month - 1, day)
 }
 
+export const isDateKey = (value?: string | null) => {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  return toDateKey(parseDateKey(value)) === value
+}
+
+export const getDateKeyValue = (value?: string | null) =>
+  isDateKey(value) ? value : undefined
+
 export const addDays = (date: Date, days: number) => {
   const next = new Date(date)
   next.setDate(next.getDate() + days)
   return next
 }
-
-export const addWeeks = (dateKey: string, weeks: number) =>
-  toDateKey(addDays(parseDateKey(dateKey), weeks * 7))
 
 export const addMonths = (date: Date, months: number) => {
   const next = new Date(date.getFullYear(), date.getMonth(), 1)
@@ -39,11 +44,6 @@ export const setYearMonth = (date: Date, year: number, monthIndex: number) => {
 
 export const getTodayKey = () => toDateKey(new Date())
 
-export const formatDateTitle = (dateKey: string) => {
-  const date = parseDateKey(dateKey)
-  return `${date.getMonth() + 1}月${date.getDate()}日`
-}
-
 export const formatDateWithWeekday = (dateKey: string) => {
   const date = parseDateKey(dateKey)
   return `${date.getMonth() + 1}月${date.getDate()}日 · ${cnWeekdays[date.getDay()]}`
@@ -56,33 +56,10 @@ export const formatFullDate = (dateKey: string) => {
 
 export const formatYearMonth = (date: Date) => `${date.getFullYear()}年${date.getMonth() + 1}月`
 
-export const getMonthRangeLabel = (date: Date) => {
-  const start = new Date(date.getFullYear(), date.getMonth(), 1)
-  const end = new Date(date.getFullYear(), date.getMonth() + 1, 0)
-  return `${start.getMonth() + 1}月${start.getDate()}日 - ${end.getMonth() + 1}月${end.getDate()}日`
-}
 export const formatTimeRange = (schedule: Pick<Schedule, 'startTime' | 'endTime'>) => {
   if (schedule.startTime && schedule.endTime) return `${schedule.startTime} - ${schedule.endTime}`
   if (schedule.startTime) return schedule.startTime
   return '全天'
-}
-
-export const getMonday = (date: Date) => {
-  const day = date.getDay()
-  const diff = day === 0 ? -6 : 1 - day
-  return addDays(date, diff)
-}
-
-export const getWeekDays = (date: Date) => {
-  const monday = getMonday(date)
-  return Array.from({ length: 7 }, (_, index) => addDays(monday, index))
-}
-
-export const getWeekRangeLabel = (date: Date) => {
-  const days = getWeekDays(date)
-  const start = days[0]
-  const end = days[6]
-  return `${start.getMonth() + 1}月${start.getDate()}日 - ${end.getMonth() + 1}月${end.getDate()}日`
 }
 
 export const getMonthDays = (date: Date) => {
@@ -102,9 +79,6 @@ export const sortSchedules = (schedules: Schedule[]) =>
     if (a.date !== b.date) return a.date.localeCompare(b.date)
     return (a.startTime ?? '99:99').localeCompare(b.startTime ?? '99:99')
   })
-
-export const getCurrentTimeLabel = () =>
-  new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
 
 export const parseTimeString = (time?: string) => {
   const [hour = 10, minute = 0] = (time ?? '10:00').split(':').map((part) => Number(part))

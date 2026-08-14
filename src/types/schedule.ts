@@ -6,14 +6,6 @@ export type DailySubtype = 'on_camera' | 'western' | 'coaching'
 
 export type ServiceSubtype = BridalSubtype | DailySubtype
 
-export type ScheduleType =
-  | 'work'
-  | 'shoot'
-  | 'makeup'
-  | 'meeting'
-  | 'personal'
-  | 'other'
-
 export type ScheduleStatus =
   | 'pending'
   | 'confirmed'
@@ -30,7 +22,7 @@ export type BrideStage =
   | 'completed'
   | 'cancelled'
 
-export type JewelryNeed = 'none' | 'borrow' | 'provided'
+export type JewelryNeed = 'none' | 'borrow'
 
 export type ReferenceImageGroup = 'makeup' | 'jewelry' | 'outfit' | 'trial'
 
@@ -64,7 +56,6 @@ export type Schedule = {
   trialDate?: string
   trialStartTime?: string
   trialEndTime?: string
-  type: ScheduleType
   status: ScheduleStatus
   customer?: string
   phone?: string
@@ -83,12 +74,6 @@ export type Schedule = {
 
 export type ScheduleDraft = Omit<Schedule, 'id' | 'createdAt' | 'updatedAt'>
 
-export type Category = {
-  id: ScheduleType
-  label: string
-  color: string
-}
-
 export type AppSettings = {
   id: 'default'
   lastBackupAt?: string
@@ -104,19 +89,6 @@ export type BackupPayload = {
 }
 
 export type StatusTone = 'warning' | 'primary' | 'success' | 'default' | 'danger'
-
-export const scheduleTypeOptions: Array<{
-  value: ScheduleType
-  label: string
-  color: string
-}> = [
-  { value: 'makeup', label: '新娘跟妆', color: '#be185d' },
-  { value: 'shoot', label: '试妆/拍摄', color: '#0f766e' },
-  { value: 'work', label: '工作室事务', color: '#2563eb' },
-  { value: 'meeting', label: '会议', color: '#7c3aed' },
-  { value: 'personal', label: '私人', color: '#059669' },
-  { value: 'other', label: '其他', color: '#64748b' },
-]
 
 export const scheduleStatusOptions: Array<{
   value: ScheduleStatus
@@ -148,7 +120,6 @@ export const brideStageOptions: Array<{
 export const jewelryNeedOptions: Array<{ value: JewelryNeed; label: string }> = [
   { value: 'none', label: '不需要饰品' },
   { value: 'borrow', label: '工作室提供' },
-  { value: 'provided', label: '客人自备' },
 ]
 
 export const referenceImageGroupOptions: Array<{
@@ -162,17 +133,8 @@ export const referenceImageGroupOptions: Array<{
   { value: 'trial', title: '试妆照片', hint: '试妆当天记录' },
 ]
 
-export const getTypeLabel = (type: ScheduleType) =>
-  scheduleTypeOptions.find((option) => option.value === type)?.label ?? '其他'
-
-export const getTypeColor = (type: ScheduleType) =>
-  scheduleTypeOptions.find((option) => option.value === type)?.color ?? '#64748b'
-
 export const getStatusLabel = (status: ScheduleStatus) =>
   scheduleStatusOptions.find((option) => option.value === status)?.label ?? '待确认'
-
-export const getStatusTone = (status: ScheduleStatus) =>
-  scheduleStatusOptions.find((option) => option.value === status)?.tone ?? 'warning'
 
 export const mapStatusToBrideStage = (status: ScheduleStatus): BrideStage => {
   if (status === 'confirmed') return 'first_deposit'
@@ -187,9 +149,6 @@ export const getScheduleBrideStage = (schedule: Pick<Schedule, 'brideStage' | 's
 
 export const getBrideStageLabel = (stage?: BrideStage) =>
   brideStageOptions.find((option) => option.value === stage)?.label ?? '咨询中'
-
-export const getBrideStageShortLabel = (stage?: BrideStage) =>
-  brideStageOptions.find((option) => option.value === stage)?.shortLabel ?? '咨询'
 
 export const getBrideStageTone = (stage?: BrideStage) =>
   brideStageOptions.find((option) => option.value === stage)?.tone ?? 'warning'
@@ -239,9 +198,6 @@ export const getDefaultServiceSubtype = (category: ServiceCategory): ServiceSubt
 
 export const getBridalServiceSlotTitle = (subtype: BridalSubtype) =>
   subtype === 'early_makeup' ? '婚期跟妆' : '宴会跟妆'
-
-export const getBridalDateLabel = (subtype: BridalSubtype) =>
-  getBridalServiceSlotTitle(subtype)
 
 export const getServiceCategoryLabel = (category: ServiceCategory) =>
   serviceCategoryOptions.find((option) => option.value === category)?.label ?? category

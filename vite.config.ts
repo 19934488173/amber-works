@@ -12,7 +12,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: [
-        'favicon.svg',
+        'favicon.ico',
+        'kang-studio-favicon-64.png',
         'apple-touch-icon.png',
         'kang-studio-icon-192.png',
         'kang-studio-icon-512.png',

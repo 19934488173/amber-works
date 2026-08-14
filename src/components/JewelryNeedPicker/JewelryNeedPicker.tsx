@@ -16,6 +16,11 @@ const jewelryOptions: Array<{ value: JewelryChoice; title: string; desc: string 
 
 export const JewelryNeedPicker = ({ value, items, onChange, onItemsChange }: Props) => (
   <div className="jewelry-picker">
+    <div className="jewelry-picker__intro">
+      <strong>饰品安排</strong>
+      <span>确认是否需要借用手作饰品</span>
+    </div>
+
     <div className="jewelry-picker__options">
       {jewelryOptions.map((option) => {
         const active = value === option.value

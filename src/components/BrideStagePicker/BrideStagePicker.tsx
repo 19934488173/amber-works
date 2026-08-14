@@ -12,6 +12,11 @@ export const BrideStagePicker = ({ stage, onChange }: Props) => {
 
   return (
     <div className="stage-picker">
+      <div className="stage-picker__intro">
+        <strong>当前进度</strong>
+        <span>记录跟妆客户所处阶段</span>
+      </div>
+
       <div className="stage-picker__track" role="listbox" aria-label="当前进度">
         {stageFlow.map((item, index) => {
           const reached = index <= currentIndex

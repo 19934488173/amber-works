@@ -1,4 +1,3 @@
-import { useRef } from 'react'
 import { Dialog, Toast } from 'antd-mobile'
 import {
   DeleteOutline,
@@ -15,14 +14,14 @@ import { StudioBrand } from '../../components/StudioBrand/StudioBrand'
 
 export const SettingsPage = () => {
   const { refresh } = useScheduleStore()
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const exportBackup = async () => {
     try {
       const backup = await scheduleRepository.exportBackup()
-      downloadJsonBackup(backup)
+      const result = await downloadJsonBackup(backup)
+      if (result === 'cancelled') return
       await scheduleRepository.markBackupNow()
-      Toast.show('已导出备份')
+      Toast.show(result === 'shared' ? '已打开系统分享' : '已导出备份')
     } catch (error) {
       Toast.show(error instanceof Error ? error.message : '导出失败')
     }
@@ -98,13 +97,12 @@ export const SettingsPage = () => {
                 <span>从备份文件恢复</span>
               </div>
             </div>
-            <button
-              type="button"
+            <label
               className="settings-page__action-btn"
-              onClick={() => fileInputRef.current?.click()}
+              htmlFor="settings-backup-input"
             >
               导入
-            </button>
+            </label>
           </div>
 
           <div className="settings-page__row is-static">
@@ -120,10 +118,10 @@ export const SettingsPage = () => {
           </div>
         </div>
         <input
-          ref={fileInputRef}
+          id="settings-backup-input"
+          className="settings-page__file-input"
           type="file"
-          accept="application/json"
-          hidden
+          accept=".json,application/json"
           onChange={(event) => {
             void importBackup(event.target.files?.[0])
             event.target.value = ''

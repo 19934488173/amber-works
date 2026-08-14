@@ -3,6 +3,7 @@ import { AddOutline, CalendarOutline, PayCircleOutline, SetOutline, TeamOutline 
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { StudioBrand } from '../components/StudioBrand/StudioBrand'
 import { ScheduleProvider } from './ScheduleContext'
+import { getDateKeyValue } from '../utils/date'
 
 const navItems = [
   { key: '/calendar', title: '月度', icon: <CalendarOutline /> },
@@ -26,6 +27,14 @@ export default function App() {
         : location.pathname.startsWith('/settings')
           ? '/settings'
           : '/calendar'
+  const searchParams = new URLSearchParams(location.search)
+  const customerKind = searchParams.get('kind')
+  const calendarDate = getDateKeyValue(searchParams.get('date'))
+  const createPath = location.pathname.startsWith('/customers') && customerKind === 'daily'
+    ? '/schedule/new?category=daily'
+    : location.pathname.startsWith('/calendar') && calendarDate
+      ? `/schedule/new?serviceDate=${calendarDate}`
+      : '/schedule/new'
 
   return (
     <ScheduleProvider>
@@ -47,7 +56,7 @@ export default function App() {
               '--initial-position-right': 'max(20px, calc((100vw - 430px) / 2 + 20px))',
               '--initial-position-bottom': '88px',
             }}
-            onClick={() => navigate('/schedule/new')}
+            onClick={() => navigate(createPath)}
             aria-label="新建档期"
           >
             <AddOutline fontSize={28} />

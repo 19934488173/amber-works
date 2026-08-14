@@ -1,17 +1,13 @@
 import { useMemo, useState } from "react";
 import { DatePicker, Empty, Form, Input, Modal, Toast } from "antd-mobile";
-import {
-  BillOutline,
-  PayCircleOutline,
-  ReceivePaymentOutline,
-} from "antd-mobile-icons";
+import { BillOutline, ReceivePaymentOutline } from "antd-mobile-icons";
 import {
   getCustomerName,
   getIncomeSummary,
   getMonthlyIncomeRows,
 } from "../../app/bridalData";
 import { useScheduleStore } from "../../app/useScheduleStore";
-import { formatCurrency } from "../../utils/statistics";
+import { formatCurrency, formatSignedCurrency } from "../../utils/statistics";
 import { toDateKey } from "../../utils/date";
 import type { ScheduleDraft } from "../../types/schedule";
 
@@ -47,18 +43,19 @@ export const IncomePage = () => {
       date: dateKey,
       startTime: undefined,
       endTime: undefined,
-      type: "shoot",
       status: "completed",
       customer: values.note?.trim() || "生活妆客人",
       amount,
-      paymentRecords: [{
-        id: crypto.randomUUID(),
-        kind: "final_payment",
-        label: "服务尾款",
-        date: dateKey,
-        amount,
-        createdAt: new Date().toISOString(),
-      }],
+      paymentRecords: [
+        {
+          id: crypto.randomUUID(),
+          kind: "final_payment",
+          label: "服务尾款",
+          date: dateKey,
+          amount,
+          createdAt: new Date().toISOString(),
+        },
+      ],
       brideStage: "completed",
       referenceImages: [],
     };
@@ -91,7 +88,7 @@ export const IncomePage = () => {
             {formatCurrency(summary.received)}
           </strong>
           <span className="income-page__stat-meta">
-            {summary.paymentCount} 笔到账
+            {summary.paymentCount} 笔流水
           </span>
         </article>
         <article className="income-page__stat is-pending">
@@ -126,13 +123,17 @@ export const IncomePage = () => {
                 <div
                   className={`income-page__chart-fill${
                     index === 0 ? " is-current" : ""
-                  }`}
+                  }${row.paid < 0 ? " is-negative" : ""}`}
                   style={{ width: `${row.percent}%` }}
                   aria-label={`${row.label} 收入 ${formatCurrency(row.paid)}`}
                 />
               </div>
-              <span className="income-page__chart-amount">
-                {formatCurrency(row.paid)}
+              <span
+                className={`income-page__chart-amount${
+                  row.paid < 0 ? " is-negative" : ""
+                }`}
+              >
+                {row.paid < 0 ? formatSignedCurrency(row.paid) : formatCurrency(row.paid)}
               </span>
             </div>
           ))}
@@ -152,7 +153,9 @@ export const IncomePage = () => {
           <div className="income-page__payments">
             {monthPayments.map((event) => (
               <div
-                className="income-page__payment"
+                className={`income-page__payment${
+                  event.amount < 0 ? " is-negative" : ""
+                }`}
                 key={`${event.schedule.id}-${event.type}-${event.date}`}
               >
                 <div className="income-page__payment-main">
@@ -165,7 +168,7 @@ export const IncomePage = () => {
                   </span>
                 </div>
                 <span className="income-page__payment-amount">
-                  +{formatCurrency(event.amount)}
+                  {formatSignedCurrency(event.amount)}
                 </span>
               </div>
             ))}
@@ -177,21 +180,22 @@ export const IncomePage = () => {
         )}
       </section>
 
-      <p className="income-page__hint">
-        <PayCircleOutline fontSize={14} />
-        收入按每笔收款日期统计，尾款按客户报价减已收金额计算。
-      </p>
-
       <Modal
         visible={quickVisible}
-        title="生活妆快速记账"
+        className="quick-income-modal"
+        bodyClassName="quick-income-modal__body"
         content={
           <Form
+            className="quick-income-form"
             form={form}
             layout="vertical"
             onFinish={saveQuickIncome}
             initialValues={{ amount: "400" }}
           >
+            <div className="quick-income-form__header">
+              <span>QUICK INCOME</span>
+              <h2>生活妆快速记账</h2>
+            </div>
             <Form.Item label="收款日期">
               <button
                 type="button"
@@ -217,9 +221,16 @@ export const IncomePage = () => {
           {
             key: "cancel",
             text: "取消",
+            className: "quick-income-modal__cancel",
             onClick: () => setQuickVisible(false),
           },
-          { key: "submit", text: "保存记账", onClick: () => form.submit() },
+          {
+            key: "submit",
+            text: "保存记账",
+            primary: true,
+            className: "quick-income-modal__submit",
+            onClick: () => form.submit(),
+          },
         ]}
         onClose={() => setQuickVisible(false)}
       />
