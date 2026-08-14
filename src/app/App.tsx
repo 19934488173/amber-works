@@ -6,6 +6,7 @@ import { AuthPage } from '../pages/Auth/AuthPage'
 import { ScheduleProvider } from './ScheduleContext'
 import { useAuth } from './useAuth'
 import { getDateKeyValue } from '../utils/date'
+import { isLocalModeEnabled } from '../lib/supabase'
 
 const navItems = [
   { key: '/calendar', title: '月度', icon: <CalendarOutline /> },
@@ -47,7 +48,7 @@ export default function App() {
     )
   }
 
-  if (isConfigured && !user) {
+  if ((!isConfigured && !isLocalModeEnabled) || (isConfigured && !user)) {
     return <AuthPage />
   }
 

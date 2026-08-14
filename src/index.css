@@ -2114,6 +2114,17 @@ p {
   line-height: 1.45;
 }
 
+ .auth-page__notice {
+   margin: 0 0 16px;
+   border: 1px solid rgba(201, 95, 95, 0.22);
+   border-radius: 8px;
+   background: rgba(201, 95, 95, 0.08);
+   color: var(--app-danger);
+   padding: 10px 12px;
+   font-size: 13px;
+   line-height: 1.45;
+ }
+
 .auth-page__switch {
   display: block;
   margin: 12px auto 0;

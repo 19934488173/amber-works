@@ -11,7 +11,7 @@ type AuthFormValues = {
 }
 
 export const AuthPage = () => {
-  const { signIn, signUp } = useAuth()
+  const { authError, isConfigured, signIn, signUp } = useAuth()
   const [form] = Form.useForm<AuthFormValues>()
   const [mode, setMode] = useState<AuthMode>('sign-in')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -55,30 +55,40 @@ export const AuthPage = () => {
 
         <section className="auth-page__card">
           <div className="auth-page__headline">
-            <h1>{mode === 'sign-in' ? '登录账号' : '创建账号'}</h1>
-            <p>{mode === 'sign-in' ? '登录后档期会保存到云端数据库' : '用邮箱和密码创建工作室账号'}</p>
+            <h1>{isConfigured ? (mode === 'sign-in' ? '登录账号' : '创建账号') : '云端登录未配置'}</h1>
+            <p>
+              {isConfigured
+                ? mode === 'sign-in' ? '登录后档期会保存到云端数据库' : '用邮箱和密码创建工作室账号'
+                : '请先在部署环境配置 Supabase URL 和 anon key，然后重新部署应用。'}
+            </p>
           </div>
 
-          <Form form={form} layout="vertical" footer={
-            <Button block color="primary" loading={isSubmitting} onClick={() => form.submit()}>
-              {mode === 'sign-in' ? '登录' : '注册'}
-            </Button>
-          } onFinish={(values) => { void submit(values) }}>
-            <Form.Item name="email" label="邮箱">
-              <Input clearable type="email" autoComplete="email" placeholder="name@example.com" />
-            </Form.Item>
-            <Form.Item name="password" label="密码">
-              <Input clearable type="password" autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'} placeholder="至少 6 位" />
-            </Form.Item>
-          </Form>
+          {authError ? <p className="auth-page__notice">{authError}</p> : null}
 
-          <button
-            type="button"
-            className="auth-page__switch"
-            onClick={() => setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in')}
-          >
-            {mode === 'sign-in' ? '还没有账号？创建一个' : '已有账号？去登录'}
-          </button>
+          {isConfigured ? (
+            <>
+              <Form form={form} layout="vertical" footer={
+                <Button block color="primary" loading={isSubmitting} onClick={() => form.submit()}>
+                  {mode === 'sign-in' ? '登录' : '注册'}
+                </Button>
+              } onFinish={(values) => { void submit(values) }}>
+                <Form.Item name="email" label="邮箱">
+                  <Input clearable type="email" autoComplete="email" placeholder="name@example.com" />
+                </Form.Item>
+                <Form.Item name="password" label="密码">
+                  <Input clearable type="password" autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'} placeholder="至少 6 位" />
+                </Form.Item>
+              </Form>
+
+              <button
+                type="button"
+                className="auth-page__switch"
+                onClick={() => setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in')}
+              >
+                {mode === 'sign-in' ? '还没有账号？创建一个' : '已有账号？去登录'}
+              </button>
+            </>
+          ) : null}
         </section>
       </div>
     </div>
