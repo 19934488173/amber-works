@@ -54,9 +54,13 @@ export const SettingsPage = () => {
       content: '清空全部数据？此操作不可恢复。',
       confirmText: '清空',
       onConfirm: async () => {
-        await scheduleRepository.clearAll()
-        await refresh()
-        Toast.show('已清空')
+        try {
+          await scheduleRepository.clearAll()
+          await refresh()
+          Toast.show('已清空')
+        } catch (error) {
+          Toast.show(error instanceof Error ? error.message : '清空失败')
+        }
       },
     })
   }

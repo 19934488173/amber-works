@@ -316,6 +316,9 @@ const throwCloudError = (error: { message: string } | null, fallback: string) =>
   if (error) throw new Error(`${fallback}：${error.message}`)
 }
 
+const isMissingCloudFunctionError = (error: { message: string } | null) =>
+  Boolean(error?.message.includes('replace_user_backup'))
+
 const throwConflictError = () => {
   throw new Error('云端数据已被其他设备修改，请刷新后再试')
 }
@@ -539,7 +542,7 @@ const createCloudRepository = (userId: string): Repository => ({
     const now = new Date().toISOString()
     const existing = await this.getSettings()
 
-    const { error } = await client.rpc('replace_user_backup', {
+    const params: ReplaceUserBackupParams = {
       p_schedules: [],
       p_settings: createSettingsRow(userId, {
         id: 'default',
@@ -547,7 +550,24 @@ const createCloudRepository = (userId: string): Repository => ({
         updatedAt: now,
         lastBackupAt: existing.lastBackupAt,
       }),
-    } satisfies ReplaceUserBackupParams)
+    }
+
+    const { error } = await client.rpc('replace_user_backup', params)
+    if (isMissingCloudFunctionError(error)) {
+      const { error: deleteError } = await client
+        .from('schedules')
+        .delete()
+        .eq('user_id', userId)
+
+      throwCloudError(deleteError, '清空云端数据失败')
+
+      const { error: settingsError } = await client
+        .from('app_settings')
+        .upsert(params.p_settings, { onConflict: 'user_id' })
+
+      throwCloudError(settingsError, '清空云端数据失败')
+      return
+    }
 
     throwCloudError(error, '清空云端数据失败')
   },
