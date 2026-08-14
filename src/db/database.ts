@@ -26,13 +26,6 @@ class ScheduleDatabase extends Dexie {
 
 export const db = new ScheduleDatabase()
 
-const removeLegacyDemoSchedules = async () => {
-  const legacyIds = await db.schedules.filter((schedule) => schedule.id.startsWith('seed-')).primaryKeys()
-  if (legacyIds.length > 0) {
-    await db.schedules.bulkDelete(legacyIds)
-  }
-}
-
 export const ensureAppDefaults = async () => {
   const now = new Date().toISOString()
   const existingSettings = await db.settings.get('default')
@@ -51,6 +44,4 @@ export const ensureAppDefaults = async () => {
       })),
     )
   }
-
-  await removeLegacyDemoSchedules()
 }

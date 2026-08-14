@@ -41,7 +41,9 @@ export const IncomePage = () => {
     }
     const dateKey = toDateKey(date);
     const draft: ScheduleDraft = {
-      title: "生活妆",
+      title: "上镜妆",
+      serviceCategory: "daily",
+      serviceSubtype: "on_camera",
       date: dateKey,
       startTime: undefined,
       endTime: undefined,
@@ -52,7 +54,7 @@ export const IncomePage = () => {
       paymentRecords: [{
         id: crypto.randomUUID(),
         kind: "final_payment",
-        label: "生活妆收款",
+        label: "服务尾款",
         date: dateKey,
         amount,
         createdAt: new Date().toISOString(),

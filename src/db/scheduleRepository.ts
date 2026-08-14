@@ -2,7 +2,6 @@ import { db, ensureAppDefaults } from './database'
 import type { AppSettings, BackupPayload, PaymentRecord, ReferenceImageGroup, Schedule, ScheduleDraft } from '../types/schedule'
 import { mapStatusToBrideStage } from '../types/schedule'
 import { sortSchedules } from '../utils/date'
-import { getPaymentEvents } from '../utils/statistics'
 
 const createId = () => crypto.randomUUID()
 const dateKeyPattern = /^\d{4}-\d{2}-\d{2}$/
@@ -27,28 +26,25 @@ const referenceImageGroups: ReferenceImageGroup[] = ['makeup', 'jewelry', 'outfi
 const asReferenceImageGroup = (value: unknown): ReferenceImageGroup =>
   referenceImageGroups.includes(value as ReferenceImageGroup) ? value as ReferenceImageGroup : 'makeup'
 
-const normalizePaymentRecords = (schedule: Schedule): PaymentRecord[] => {
-  if (schedule.paymentRecords?.length) {
-    return schedule.paymentRecords
-      .map((record) => ({
-        id: record.id || createId(),
-        kind: record.kind,
-        label: record.label || '收款',
-        date: record.date,
-        amount: Number(record.amount),
-        createdAt: record.createdAt || schedule.createdAt,
-      }))
-      .filter((record) => dateKeyPattern.test(record.date) && Number.isFinite(record.amount) && record.amount > 0)
-  }
+const normalizePaymentRecords = (records: unknown, createdAt: string): PaymentRecord[] => {
+  if (!Array.isArray(records)) return []
 
-  return getPaymentEvents(schedule).map((event) => ({
-    id: createId(),
-    kind: event.type === 'legacy_paid' ? 'other' : event.type,
-    label: event.label,
-    date: event.date,
-    amount: event.amount,
-    createdAt: schedule.createdAt,
-  }))
+  return records
+    .filter(isPlainObject)
+    .map((record) => ({
+      id: asString(record.id) ?? createId(),
+      kind: asString(record.kind) as PaymentRecord['kind'],
+      label: asString(record.label) || '收款',
+      date: asDateKey(record.date) ?? '',
+      amount: Number(record.amount),
+      createdAt: asString(record.createdAt) ?? createdAt,
+    }))
+    .filter((record) =>
+      ['first_deposit', 'trial_deposit', 'final_payment', 'other'].includes(record.kind)
+      && dateKeyPattern.test(record.date)
+      && Number.isFinite(record.amount)
+      && record.amount > 0,
+    )
 }
 
 const normalizeSchedule = (value: unknown): Schedule => {
@@ -59,11 +55,18 @@ const normalizeSchedule = (value: unknown): Schedule => {
   const date = asDateKey(value.date)
   if (!date) throw new Error('备份文件包含无效日期')
 
+  const serviceCategory = asString(value.serviceCategory) as Schedule['serviceCategory']
+  const serviceSubtype = asString(value.serviceSubtype) as Schedule['serviceSubtype']
+  if (!serviceCategory || !serviceSubtype) throw new Error('备份文件包含无效客户类型')
+
   const status = asString(value.status) as Schedule['status'] | undefined
   const type = asString(value.type) as Schedule['type'] | undefined
-  const schedule: Schedule = {
+
+  return {
     id,
     title: asString(value.title) || '未命名档期',
+    serviceCategory,
+    serviceSubtype,
     date,
     startTime: asString(value.startTime),
     endTime: asString(value.endTime),
@@ -73,14 +76,9 @@ const normalizeSchedule = (value: unknown): Schedule => {
     phone: asString(value.phone),
     location: asString(value.location),
     amount: asPositiveNumber(value.amount),
-    paidAmount: asPositiveNumber(value.paidAmount),
-    firstDepositAmount: asPositiveNumber(value.firstDepositAmount),
-    trialDepositAmount: asPositiveNumber(value.trialDepositAmount),
-    finalPaymentAmount: asPositiveNumber(value.finalPaymentAmount),
-    firstDepositDate: asDateKey(value.firstDepositDate),
     trialDate: asDateKey(value.trialDate),
-    trialDepositDate: asDateKey(value.trialDepositDate),
-    finalPaymentDate: asDateKey(value.finalPaymentDate),
+    trialStartTime: asString(value.trialStartTime),
+    trialEndTime: asString(value.trialEndTime),
     brideStage: asString(value.brideStage) as Schedule['brideStage'],
     outfitCount: asPositiveNumber(value.outfitCount),
     jewelryNeed: asString(value.jewelryNeed) as Schedule['jewelryNeed'],
@@ -95,49 +93,20 @@ const normalizeSchedule = (value: unknown): Schedule => {
         createdAt: asString(image.createdAt) ?? now,
       })).filter((image) => image.url)
       : [],
-    paymentRecords: [],
+    paymentRecords: normalizePaymentRecords(value.paymentRecords, now),
     createdAt: asString(value.createdAt) ?? now,
     updatedAt: asString(value.updatedAt) ?? now,
   }
-
-  schedule.paymentRecords = normalizePaymentRecords(schedule)
-  return schedule
 }
 
-const normalizeDraft = (draft: ScheduleDraft): ScheduleDraft => {
-  const base = {
-    ...draft,
-    paymentRecords: normalizePaymentRecords({
-      ...draft,
-      id: createId(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }),
-  }
-
-  return {
-    ...base,
-    paidAmount: undefined,
-    firstDepositAmount: undefined,
-    trialDepositAmount: undefined,
-    finalPaymentAmount: undefined,
-    firstDepositDate: undefined,
-    trialDepositDate: undefined,
-    finalPaymentDate: undefined,
-  }
-}
+const normalizeDraft = (draft: ScheduleDraft): ScheduleDraft => ({
+  ...draft,
+  paymentRecords: normalizePaymentRecords(draft.paymentRecords, new Date().toISOString()),
+})
 
 export const scheduleRepository = {
   async initialize() {
     await ensureAppDefaults()
-    const schedules = await db.schedules.toArray()
-    const normalized = schedules.map(normalizeSchedule)
-    const needsMigration = schedules.some((schedule, index) =>
-      !schedule.paymentRecords?.length && normalized[index].paymentRecords?.length,
-    )
-    if (needsMigration) {
-      await db.schedules.bulkPut(normalized)
-    }
   },
 
   async list() {
@@ -196,6 +165,8 @@ export const scheduleRepository = {
   async duplicate(source: Schedule, date: string) {
     return this.create({
       title: source.title,
+      serviceCategory: source.serviceCategory,
+      serviceSubtype: source.serviceSubtype,
       date,
       startTime: source.startTime,
       endTime: source.endTime,
@@ -205,14 +176,9 @@ export const scheduleRepository = {
       phone: source.phone,
       location: source.location,
       amount: source.amount,
-      paidAmount: undefined,
-      firstDepositAmount: undefined,
-      trialDepositAmount: undefined,
-      finalPaymentAmount: undefined,
-      firstDepositDate: undefined,
       trialDate: source.trialDate,
-      trialDepositDate: undefined,
-      finalPaymentDate: undefined,
+      trialStartTime: source.trialStartTime,
+      trialEndTime: source.trialEndTime,
       brideStage: 'inquiry',
       outfitCount: source.outfitCount,
       jewelryNeed: source.jewelryNeed,

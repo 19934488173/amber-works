@@ -29,7 +29,7 @@ export default function App() {
 
   return (
     <ScheduleProvider>
-      <div className="mx-auto min-h-dvh w-full max-w-107.5 bg-(--app-bg) text-(--app-text) shadow-[0_18px_55px_rgba(98,55,65,0.18)] sm:my-2 sm:overflow-hidden sm:rounded-7 sm:border sm:border-(--app-border)">
+      <div className="app-shell mx-auto min-h-dvh w-full max-w-107.5 bg-(--app-bg) text-(--app-text) sm:my-2 sm:overflow-hidden sm:rounded-7 sm:border sm:border-(--app-border)">
         <main className={hideChrome ? 'min-h-dvh bg-(--app-bg)' : 'min-h-dvh bg-(--app-bg) px-4 pb-26 pt-4'} id="main-content">
           {!hideChrome ? (
             <div className="studio-brand-bar">
@@ -55,7 +55,7 @@ export default function App() {
         )}
 
         {!hideChrome && (
-          <div className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-107.5 border-t border-(--app-border) bg-white/95 shadow-[0_-14px_36px_rgba(79,44,52,0.06)] backdrop-blur">
+          <div className="app-tab-bar fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-107.5 border-t border-(--app-border) bg-white/95 backdrop-blur">
             <TabBar activeKey={activeKey} onChange={(key) => navigate(key)} safeArea={false}>
               {navItems.map((item) => (
                 <TabBar.Item key={item.key} icon={item.icon} title={item.title} />

@@ -1,3 +1,11 @@
+export type ServiceCategory = 'bridal' | 'daily'
+
+export type BridalSubtype = 'engagement' | 'thanks' | 'departure' | 'early_makeup'
+
+export type DailySubtype = 'on_camera' | 'western' | 'coaching'
+
+export type ServiceSubtype = BridalSubtype | DailySubtype
+
 export type ScheduleType =
   | 'work'
   | 'shoot'
@@ -48,30 +56,27 @@ export type PaymentRecord = {
 export type Schedule = {
   id: string
   title: string
+  serviceCategory: ServiceCategory
+  serviceSubtype: ServiceSubtype
   date: string
   startTime?: string
   endTime?: string
+  trialDate?: string
+  trialStartTime?: string
+  trialEndTime?: string
   type: ScheduleType
   status: ScheduleStatus
   customer?: string
   phone?: string
   location?: string
   amount?: number
-  paidAmount?: number
-  firstDepositAmount?: number
-  trialDepositAmount?: number
-  finalPaymentAmount?: number
-  firstDepositDate?: string
-  trialDate?: string
-  trialDepositDate?: string
-  finalPaymentDate?: string
   brideStage?: BrideStage
   outfitCount?: number
   jewelryNeed?: JewelryNeed
   jewelryItems?: string
   note?: string
   referenceImages?: ReferenceImage[]
-  paymentRecords?: PaymentRecord[]
+  paymentRecords: PaymentRecord[]
   createdAt: string
   updatedAt: string
 }
@@ -191,3 +196,75 @@ export const getBrideStageTone = (stage?: BrideStage) =>
 
 export const getJewelryNeedLabel = (need?: JewelryNeed) =>
   jewelryNeedOptions.find((option) => option.value === need)?.label ?? '未记录'
+
+export const serviceCategoryOptions: Array<{ value: ServiceCategory; label: string }> = [
+  { value: 'bridal', label: '跟妆' },
+  { value: 'daily', label: '日常生活妆' },
+]
+
+export const bridalSubtypeOptions: Array<{ value: BridalSubtype; label: string }> = [
+  { value: 'engagement', label: '订婚宴' },
+  { value: 'thanks', label: '答谢宴' },
+  { value: 'departure', label: '出阁宴' },
+  { value: 'early_makeup', label: '新娘早妆' },
+]
+
+export const dailySubtypeOptions: Array<{ value: DailySubtype; label: string }> = [
+  { value: 'on_camera', label: '上镜妆' },
+  { value: 'western', label: '欧美妆' },
+  { value: 'coaching', label: '美妆私教' },
+]
+
+const serviceSubtypeLabelMap: Record<ServiceSubtype, string> = {
+  engagement: '订婚宴',
+  thanks: '答谢宴',
+  departure: '出阁宴',
+  early_makeup: '新娘早妆',
+  on_camera: '上镜妆',
+  western: '欧美妆',
+  coaching: '美妆私教',
+}
+
+export const isDailyMakeup = (schedule: Pick<Schedule, 'serviceCategory'>) =>
+  schedule.serviceCategory === 'daily'
+
+export const getServiceSubtypeLabel = (subtype: ServiceSubtype) =>
+  serviceSubtypeLabelMap[subtype]
+
+export const getServiceSubtypeOptions = (category: ServiceCategory) =>
+  category === 'bridal' ? bridalSubtypeOptions : dailySubtypeOptions
+
+export const getDefaultServiceSubtype = (category: ServiceCategory): ServiceSubtype =>
+  category === 'bridal' ? 'early_makeup' : 'on_camera'
+
+export const getBridalServiceSlotTitle = (subtype: BridalSubtype) =>
+  subtype === 'early_makeup' ? '婚期跟妆' : '宴会跟妆'
+
+export const getBridalDateLabel = (subtype: BridalSubtype) =>
+  getBridalServiceSlotTitle(subtype)
+
+export const getServiceCategoryLabel = (category: ServiceCategory) =>
+  serviceCategoryOptions.find((option) => option.value === category)?.label ?? category
+
+export const getPaymentKindOptions = (category: ServiceCategory): Array<{
+  value: PaymentRecordKind
+  label: string
+}> => {
+  if (category === 'daily') {
+    return [
+      { value: 'first_deposit', label: '预约档期定金' },
+      { value: 'final_payment', label: '服务尾款' },
+      { value: 'other', label: '其他收款' },
+    ]
+  }
+
+  return [
+    { value: 'first_deposit', label: '试妆定金' },
+    { value: 'trial_deposit', label: '复定定金' },
+    { value: 'final_payment', label: '跟妆尾款' },
+    { value: 'other', label: '其他收款' },
+  ]
+}
+
+export const getPaymentKindLabel = (kind: PaymentRecordKind, category: ServiceCategory) =>
+  getPaymentKindOptions(category).find((option) => option.value === kind)?.label ?? '收款'

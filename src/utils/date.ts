@@ -105,3 +105,18 @@ export const sortSchedules = (schedules: Schedule[]) =>
 
 export const getCurrentTimeLabel = () =>
   new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+
+export const parseTimeString = (time?: string) => {
+  const [hour = 10, minute = 0] = (time ?? '10:00').split(':').map((part) => Number(part))
+  return new Date(2000, 0, 1, hour, minute)
+}
+
+export const formatTimeString = (date: Date) =>
+  `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+
+export const formatAppointmentDate = (date?: Date) => {
+  if (!date) return '选择日期'
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 · ${cnWeekdays[date.getDay()]}`
+}
+
+export const formatAppointmentTime = (time?: string) => time || '选时间'

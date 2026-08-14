@@ -21,6 +21,7 @@ import {
   getRemainingAmount,
 } from "../../utils/statistics";
 import { createShareImage, getMonthShareFileName } from "../../utils/share";
+import { ShareImagePreview } from "../../components/ShareImagePreview/ShareImagePreview";
 import type { Schedule } from "../../types/schedule";
 
 const currentYear = new Date().getFullYear();
@@ -62,6 +63,10 @@ export const CalendarPage = () => {
   const [todayKey, setTodayKey] = useState(() => toDateKey(new Date()));
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [yearMonthPickerVisible, setYearMonthPickerVisible] = useState(false);
+  const [sharePreview, setSharePreview] = useState<{
+    dataUrl: string;
+    fileName: string;
+  } | null>(null);
   const shareRef = useRef<HTMLDivElement>(null);
   const selectedDateObj = useMemo(() => {
     const [year, month, day] = selectedDate.split("-").map(Number);
@@ -117,11 +122,31 @@ export const CalendarPage = () => {
 
   const shareMonth = async () => {
     if (!shareRef.current) return;
-    await createShareImage(
-      shareRef.current,
-      getMonthShareFileName(monthStats.monthKey)
-    );
-    Toast.show("已生成分享图片");
+
+    try {
+      const outcome = await createShareImage(
+        shareRef.current,
+        getMonthShareFileName(monthStats.monthKey),
+      );
+
+      if (outcome.type === "preview") {
+        setSharePreview({
+          dataUrl: outcome.dataUrl,
+          fileName: outcome.fileName,
+        });
+        return;
+      }
+
+      if (outcome.type === "shared") {
+        Toast.show("已通过系统分享保存");
+        return;
+      }
+
+      Toast.show("已保存分享图片");
+    } catch (error) {
+      if ((error as Error).name === "AbortError") return;
+      Toast.show("生成分享图片失败，请重试");
+    }
   };
 
   const confirmRemove = (schedule: Schedule) => {
@@ -145,6 +170,12 @@ export const CalendarPage = () => {
           scheduleCount={monthStats.scheduleCount}
         />
       </div>
+      <ShareImagePreview
+        visible={sharePreview !== null}
+        dataUrl={sharePreview?.dataUrl ?? ""}
+        fileName={sharePreview?.fileName ?? ""}
+        onClose={() => setSharePreview(null)}
+      />
       <section className="calendar-page__hero">
         <div className="calendar-page__hero-row">
           <h1 className="calendar-page__title">

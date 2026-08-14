@@ -31,8 +31,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   fileToDataUrl,
   formatCompactDate,
-  formatDaysUntil,
-  formatWeekday,
   formValuesFromSchedule,
   getCustomerName,
   getInitial,
@@ -51,22 +49,25 @@ import { useScheduleStore } from "../../app/useScheduleStore";
 import { CustomerProfileForm } from "../ScheduleEditor/ScheduleEditorPage";
 import type {
   BrideStage,
+  BridalSubtype,
   PaymentRecordKind,
   ReferenceImageGroup,
   Schedule,
   ScheduleDraft,
 } from "../../types/schedule";
 import {
+  getBridalServiceSlotTitle,
   getJewelryNeedLabel,
+  getPaymentKindLabel,
+  getPaymentKindOptions,
   getScheduleBrideStage,
+  getServiceCategoryLabel,
+  getServiceSubtypeLabel,
+  getStatusLabel,
+  isDailyMakeup,
 } from "../../types/schedule";
-import {
-  formatCurrency,
-  getBillableAmount,
-  getPaidAmount,
-  getPaymentEvents,
-  getRemainingAmount,
-} from "../../utils/statistics";
+import { formatCurrency, getBillableAmount, getPaidAmount, getPaymentEvents, getRemainingAmount } from "../../utils/statistics";
+import { formatTimeRange } from "../../utils/date";
 import { toDateKey } from "../../utils/date";
 
 type DetailTileProps = {
@@ -94,6 +95,8 @@ const buildDraft = (
   overrides: Partial<ScheduleDraft>
 ): ScheduleDraft => ({
   title: schedule.title,
+  serviceCategory: schedule.serviceCategory,
+  serviceSubtype: schedule.serviceSubtype,
   date: schedule.date,
   startTime: schedule.startTime,
   endTime: schedule.endTime,
@@ -103,13 +106,9 @@ const buildDraft = (
   phone: schedule.phone,
   location: schedule.location,
   amount: schedule.amount,
-  paidAmount: schedule.paidAmount,
-  firstDepositAmount: schedule.firstDepositAmount,
-  trialDepositAmount: schedule.trialDepositAmount,
-  finalPaymentAmount: schedule.finalPaymentAmount,
-  firstDepositDate: schedule.firstDepositDate,
-  trialDepositDate: schedule.trialDepositDate,
-  finalPaymentDate: schedule.finalPaymentDate,
+  trialDate: schedule.trialDate,
+  trialStartTime: schedule.trialStartTime,
+  trialEndTime: schedule.trialEndTime,
   brideStage: schedule.brideStage,
   outfitCount: schedule.outfitCount,
   jewelryNeed: schedule.jewelryNeed,
@@ -119,16 +118,6 @@ const buildDraft = (
   paymentRecords: schedule.paymentRecords,
   ...overrides,
 });
-
-const paymentKindOptions: Array<{ value: PaymentRecordKind; label: string }> = [
-  { value: "first_deposit", label: "试妆定金" },
-  { value: "trial_deposit", label: "复定定金" },
-  { value: "final_payment", label: "跟妆尾款" },
-  { value: "other", label: "其他收款" },
-];
-
-const paymentKindLabel = (kind: PaymentRecordKind) =>
-  paymentKindOptions.find((option) => option.value === kind)?.label ?? "收款";
 
 const nextStage = (stage: BrideStage): BrideStage | null => {
   const normalized = normalizeStage(stage);
@@ -150,6 +139,8 @@ const PaymentDialogContent = ({
   schedule: Schedule;
   onSubmit: (values: { amount: number; kind: PaymentRecordKind; label: string; date: string }) => Promise<void>;
 }) => {
+  const category = schedule.serviceCategory;
+  const paymentKindOptions = getPaymentKindOptions(category);
   const [form] = Form.useForm<{ amount?: string; kind?: PaymentRecordKind[]; label?: string }>();
   const [date, setDate] = useState(() => new Date());
   const [dateVisible, setDateVisible] = useState(false);
@@ -170,7 +161,7 @@ const PaymentDialogContent = ({
           await onSubmit({
             amount,
             kind,
-            label: values.label?.trim() || paymentKindLabel(kind),
+            label: values.label?.trim() || getPaymentKindLabel(kind, category),
             date: toDateKey(date),
           });
           Dialog.clear();
@@ -278,6 +269,10 @@ export const CustomerDetailPage = () => {
   const stage = normalizeStage(getScheduleBrideStage(schedule));
   const currentStageIndex = stageIndex(stage);
   const currentNextStage = nextStage(stage);
+  const daily = isDailyMakeup(schedule);
+  const subtypeLabel = getServiceSubtypeLabel(schedule.serviceSubtype);
+  const categoryLabel = getServiceCategoryLabel(schedule.serviceCategory);
+  const serviceDayTitle = daily ? "预约时间" : getBridalServiceSlotTitle(schedule.serviceSubtype as BridalSubtype);
   const totalAmount = getBillableAmount(schedule);
   const paidAmount = getPaidAmount(schedule);
   const remainingAmount = getRemainingAmount(schedule);
@@ -303,18 +298,11 @@ export const CustomerDetailPage = () => {
 
     if (currentNextStage === "completed" && remainingAmount > 0) {
       overrides.paymentRecords = [
-        ...(schedule.paymentRecords ?? getPaymentEvents(schedule).map((event) => ({
-          id: crypto.randomUUID(),
-          kind: event.type === "legacy_paid" ? "other" : event.type,
-          label: event.label,
-          date: event.date,
-          amount: event.amount,
-          createdAt: schedule.createdAt,
-        }))),
+        ...(schedule.paymentRecords ?? []),
         {
           id: crypto.randomUUID(),
           kind: "final_payment",
-          label: "跟妆尾款",
+          label: daily ? "服务尾款" : "跟妆尾款",
           date: today,
           amount: remainingAmount,
           createdAt: new Date().toISOString(),
@@ -347,14 +335,7 @@ export const CustomerDetailPage = () => {
             const willSettle = rest > 0 && nextAmount >= rest;
             await updateDraft({
               paymentRecords: [
-                ...(schedule.paymentRecords ?? getPaymentEvents(schedule).map((event) => ({
-                  id: crypto.randomUUID(),
-                  kind: event.type === "legacy_paid" ? "other" : event.type,
-                  label: event.label,
-                  date: event.date,
-                  amount: event.amount,
-                  createdAt: schedule.createdAt,
-                }))),
+                ...(schedule.paymentRecords ?? []),
                 {
                   id: crypto.randomUUID(),
                   kind,
@@ -422,6 +403,9 @@ export const CustomerDetailPage = () => {
             <h1 className="customer-detail__name">
               {getCustomerName(schedule)}
             </h1>
+            <p className="mt-1 text-[12px] font-semibold text-(--app-primary)">
+              {categoryLabel} · {subtypeLabel}
+            </p>
             {schedule.phone ? (
               <p className="customer-detail__phone">
                 <PhonebookOutline fontSize={14} />
@@ -439,6 +423,7 @@ export const CustomerDetailPage = () => {
           </button>
         </section>
 
+        {!daily && (
         <section className="customer-detail__card">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -519,40 +504,63 @@ export const CustomerDetailPage = () => {
             </span>
           </Button>
         </section>
+        )}
 
         <section className="customer-detail__tile-grid">
-          <DetailTile
-            icon={<CalendarOutline />}
-            label="婚期 / 跟妆日"
-            value={formatCompactDate(schedule.date)}
-            helper={formatDaysUntil(schedule.date)}
-          />
-          <DetailTile
-            icon={<CalendarOutline />}
-            label="试妆日"
-            value={
-              schedule.trialDate
-                ? formatCompactDate(schedule.trialDate)
-                : "未约定"
-            }
-            helper={
-              schedule.trialDate
-                ? formatWeekday(schedule.trialDate)
-                : "待安排"
-            }
-          />
-          <DetailTile
-            icon={<ShopbagOutline />}
-            label="服装套数"
-            value={`${schedule.outfitCount ?? 0} 套`}
-            helper="含造型切换"
-          />
-          <DetailTile
-            icon={<StarOutline />}
-            label="饰品"
-            value={getJewelryNeedLabel(schedule.jewelryNeed)}
-            helper={schedule.jewelryItems || "未记录明细"}
-          />
+          {daily ? (
+            <>
+              <DetailTile
+                icon={<CalendarOutline />}
+                label="预约时间"
+                value={formatCompactDate(schedule.date)}
+                helper={formatTimeRange(schedule)}
+              />
+              <DetailTile
+                icon={<CalendarOutline />}
+                label="档期状态"
+                value={getStatusLabel(schedule.status)}
+                helper="当前预约状态"
+              />
+            </>
+          ) : (
+            <>
+              <DetailTile
+                icon={<CalendarOutline />}
+                label="试妆预约"
+                value={
+                  schedule.trialDate
+                    ? formatCompactDate(schedule.trialDate)
+                    : "未约定"
+                }
+                helper={
+                  schedule.trialDate
+                    ? formatTimeRange({
+                      startTime: schedule.trialStartTime,
+                      endTime: schedule.trialEndTime,
+                    })
+                    : "待安排"
+                }
+              />
+              <DetailTile
+                icon={<CalendarOutline />}
+                label={serviceDayTitle}
+                value={formatCompactDate(schedule.date)}
+                helper={formatTimeRange(schedule)}
+              />
+              <DetailTile
+                icon={<ShopbagOutline />}
+                label="服装套数"
+                value={`${schedule.outfitCount ?? 0} 套`}
+                helper="含造型切换"
+              />
+              <DetailTile
+                icon={<StarOutline />}
+                label="饰品"
+                value={getJewelryNeedLabel(schedule.jewelryNeed)}
+                helper={schedule.jewelryItems || "未记录明细"}
+              />
+            </>
+          )}
         </section>
 
         {schedule.location ? (

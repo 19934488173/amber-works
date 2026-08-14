@@ -7,8 +7,8 @@ import type { Schedule } from "../../types/schedule";
 import {
   getJewelryNeedLabel,
   getScheduleBrideStage,
-  getTypeColor,
-  getTypeLabel,
+  getServiceSubtypeLabel,
+  isDailyMakeup,
 } from "../../types/schedule";
 import { formatFullDate, formatTimeRange } from "../../utils/date";
 import {
@@ -39,12 +39,16 @@ export const ScheduleCard = ({
   const paidAmount = getPaidAmount(schedule);
   const remainingAmount = getRemainingAmount(schedule);
   const stage = getScheduleBrideStage(schedule);
-  const outfitLabel = schedule.outfitCount
-    ? `${schedule.outfitCount} 套衣服`
-    : "套数未记";
+  const daily = isDailyMakeup(schedule);
+  const typeLabel = getServiceSubtypeLabel(schedule.serviceSubtype);
+  const outfitLabel = daily
+    ? typeLabel
+    : schedule.outfitCount
+      ? `${typeLabel} · ${schedule.outfitCount} 套`
+      : typeLabel;
   const jewelryLabel = schedule.jewelryNeed
     ? getJewelryNeedLabel(schedule.jewelryNeed)
-    : "饰品未记";
+    : daily ? null : "饰品未记";
   const actions: Action[] = [];
   if (onComplete)
     actions.push({
@@ -80,10 +84,10 @@ export const ScheduleCard = ({
             <span>{formatTimeRange(schedule)}</span>
           </div>
           <div className="schedule-card__badges">
-            <Tag color={getTypeColor(schedule.type)} round>
-              {getTypeLabel(schedule.type)}
+            <Tag color={daily ? "#0f766e" : "#be185d"} round>
+              {typeLabel}
             </Tag>
-            <BrideStageBadge stage={stage} />
+            {!daily && <BrideStageBadge stage={stage} />}
           </div>
         </div>
         <div className="schedule-card__main">
@@ -119,7 +123,7 @@ export const ScheduleCard = ({
         </div>
         <div className="schedule-card__details">
           <span>{outfitLabel}</span>
-          <span>{jewelryLabel}</span>
+          {jewelryLabel ? <span>{jewelryLabel}</span> : null}
         </div>
         {schedule.jewelryItems && (
           <div className="schedule-card__note">

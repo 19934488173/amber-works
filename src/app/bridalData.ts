@@ -1,6 +1,11 @@
 import type { ImageUploadItem } from 'antd-mobile/es/components/image-uploader'
-import type { BrideStage, PaymentRecord, ReferenceImage, ReferenceImageGroup, Schedule, ScheduleDraft, ScheduleStatus, ScheduleType } from '../types/schedule'
-import { getScheduleBrideStage, referenceImageGroupOptions } from '../types/schedule'
+import type { BrideStage, PaymentRecord, ReferenceImage, ReferenceImageGroup, Schedule, ScheduleDraft, ScheduleStatus, ServiceCategory, ServiceSubtype } from '../types/schedule'
+import {
+  getDefaultServiceSubtype,
+  getScheduleBrideStage,
+  getServiceSubtypeLabel,
+  referenceImageGroupOptions,
+} from '../types/schedule'
 import { DAY_MS, getTodayKey, parseDateKey, toDateKey } from '../utils/date'
 import { getMonthKey, getPaymentEvents, getRemainingAmount } from '../utils/statistics'
 
@@ -17,13 +22,16 @@ export const stageDisplay: Record<BrideStage, { label: string; shortLabel: strin
 }
 
 export type CustomerFormValues = {
-  serviceType?: 'bridal' | 'daily' | Array<'bridal' | 'daily'>
+  serviceCategory?: ServiceCategory | Array<ServiceCategory>
+  serviceSubtype?: ServiceSubtype | Array<ServiceSubtype>
   customer?: string
   phone?: string
   date?: Date
   trialDate?: Date
   startTime?: string
   endTime?: string
+  trialStartTime?: string
+  trialEndTime?: string
   location?: string
   amount?: string
   firstDepositAmount?: string
@@ -38,7 +46,6 @@ export type CustomerFormValues = {
   note?: string
   brideStage?: BrideStage | Array<BrideStage>
   status?: ScheduleStatus | Array<ScheduleStatus>
-  type?: ScheduleType | Array<ScheduleType>
 }
 
 export const stageToStatus = (stage: BrideStage): Schedule['status'] => {
@@ -166,17 +173,21 @@ const getPositiveAmount = (value?: string) => {
 }
 
 export const formValuesFromSchedule = (schedule: Schedule): CustomerFormValues => {
-  const isDaily = schedule.title === '生活妆'
-  const firstPayment = schedule.paymentRecords?.find((record) => record.kind === 'first_deposit')
-  const trialPayment = schedule.paymentRecords?.find((record) => record.kind === 'trial_deposit')
-  const finalPayment = schedule.paymentRecords?.find((record) => record.kind === 'final_payment')
+  const firstPayment = schedule.paymentRecords.find((record) => record.kind === 'first_deposit')
+  const trialPayment = schedule.paymentRecords.find((record) => record.kind === 'trial_deposit')
+  const finalPayment = schedule.paymentRecords.find((record) => record.kind === 'final_payment')
 
   return {
-    serviceType: isDaily ? 'daily' : 'bridal',
+    serviceCategory: schedule.serviceCategory,
+    serviceSubtype: schedule.serviceSubtype,
     customer: schedule.customer,
     phone: schedule.phone,
     date: parseDateKey(schedule.date),
     trialDate: schedule.trialDate ? parseDateKey(schedule.trialDate) : undefined,
+    startTime: schedule.startTime,
+    endTime: schedule.endTime,
+    trialStartTime: schedule.trialStartTime,
+    trialEndTime: schedule.trialEndTime,
     location: schedule.location,
     amount: schedule.amount ? String(schedule.amount) : undefined,
     firstDepositAmount: firstPayment?.amount ? String(firstPayment.amount) : undefined,
@@ -191,12 +202,14 @@ export const formValuesFromSchedule = (schedule: Schedule): CustomerFormValues =
     note: schedule.note,
     brideStage: normalizeStage(getScheduleBrideStage(schedule)),
     status: schedule.status,
-    type: schedule.type,
   }
 }
 
-export const getServiceTypeValue = (serviceType?: CustomerFormValues['serviceType']) =>
-  Array.isArray(serviceType) ? serviceType[0] : serviceType
+export const getServiceCategoryValue = (serviceCategory?: CustomerFormValues['serviceCategory']) =>
+  Array.isArray(serviceCategory) ? serviceCategory[0] : serviceCategory
+
+export const getServiceSubtypeValue = (serviceSubtype?: CustomerFormValues['serviceSubtype']) =>
+  Array.isArray(serviceSubtype) ? serviceSubtype[0] : serviceSubtype
 
 export const getBrideStageValue = (brideStage?: CustomerFormValues['brideStage']) =>
   Array.isArray(brideStage) ? brideStage[0] : brideStage
@@ -207,8 +220,18 @@ export const getJewelryNeedValue = (jewelryNeed?: CustomerFormValues['jewelryNee
 const getScheduleStatusValue = (status?: CustomerFormValues['status']) =>
   Array.isArray(status) ? status[0] : status
 
-const getScheduleTypeValue = (type?: CustomerFormValues['type']) =>
-  Array.isArray(type) ? type[0] : type
+const paymentLabels = {
+  bridal: {
+    first: '试妆定金',
+    trial: '复定定金',
+    final: '跟妆尾款',
+  },
+  daily: {
+    first: '预约档期定金',
+    trial: '复定定金',
+    final: '服务尾款',
+  },
+} as const
 
 const createPaymentRecord = (
   kind: PaymentRecord['kind'],
@@ -230,11 +253,13 @@ const createPaymentRecord = (
 
 const paymentRecordsFromForm = (
   values: CustomerFormValues,
-  existing?: Schedule,
+  existing: Schedule | undefined,
+  category: ServiceCategory,
 ): PaymentRecord[] => {
   const existingRecords = existing?.paymentRecords ?? []
+  const labels = paymentLabels[category]
   const firstDepositAmount = getPositiveAmount(values.firstDepositAmount)
-  const trialDepositAmount = getPositiveAmount(values.trialDepositAmount)
+  const trialDepositAmount = category === 'bridal' ? getPositiveAmount(values.trialDepositAmount) : undefined
   const finalPaymentAmount = getPositiveAmount(values.finalPaymentAmount)
   const firstDepositDate = values.firstDepositDate ? toDateKey(values.firstDepositDate) : undefined
   const trialDepositDate = values.trialDepositDate ? toDateKey(values.trialDepositDate) : undefined
@@ -242,21 +267,23 @@ const paymentRecordsFromForm = (
   const records = [
     createPaymentRecord(
       'first_deposit',
-      '试妆定金',
+      labels.first,
       firstDepositAmount,
       firstDepositDate,
       existingRecords.find((record) => record.kind === 'first_deposit'),
     ),
-    createPaymentRecord(
-      'trial_deposit',
-      '复定定金',
-      trialDepositAmount,
-      trialDepositDate,
-      existingRecords.find((record) => record.kind === 'trial_deposit'),
-    ),
+    category === 'bridal'
+      ? createPaymentRecord(
+        'trial_deposit',
+        labels.trial,
+        trialDepositAmount,
+        trialDepositDate,
+        existingRecords.find((record) => record.kind === 'trial_deposit'),
+      )
+      : undefined,
     createPaymentRecord(
       'final_payment',
-      '跟妆尾款',
+      labels.final,
       finalPaymentAmount,
       finalPaymentDate,
       existingRecords.find((record) => record.kind === 'final_payment'),
@@ -275,10 +302,10 @@ export const draftFromForm = (values: CustomerFormValues, existing?: Schedule): 
   const trialDate = values.trialDate ? toDateKey(values.trialDate) : existing?.trialDate
   const jewelryNeedValue = getJewelryNeedValue(values.jewelryNeed)
   const jewelryNeed = jewelryNeedValue === 'none' ? 'none' : 'borrow'
-  const isDaily = getServiceTypeValue(values.serviceType) === 'daily'
-  const paymentRecords = isDaily
-    ? paymentRecordsFromForm({ ...values, finalPaymentAmount: values.amount, finalPaymentDate: values.date }, existing)
-    : paymentRecordsFromForm(values, existing)
+  const category = getServiceCategoryValue(values.serviceCategory) ?? 'bridal'
+  const subtype = getServiceSubtypeValue(values.serviceSubtype) ?? getDefaultServiceSubtype(category)
+  const isDaily = category === 'daily'
+  const paymentRecords = paymentRecordsFromForm(values, existing, category)
   const hasPayment = paymentRecords.length > 0
   const formStage = getBrideStageValue(values.brideStage)
   const stage = isDaily
@@ -292,24 +319,21 @@ export const draftFromForm = (values: CustomerFormValues, existing?: Schedule): 
           : 'inquiry'
 
   return {
-    title: isDaily ? '生活妆' : '婚礼跟妆',
+    title: getServiceSubtypeLabel(subtype),
+    serviceCategory: category,
+    serviceSubtype: subtype,
     date,
-    startTime: values.startTime || existing?.startTime || (isDaily ? undefined : '06:00'),
-    endTime: values.endTime || existing?.endTime,
-    type: getScheduleTypeValue(values.type) ?? (isDaily ? 'shoot' : (existing?.type ?? 'makeup')),
+    startTime: values.startTime?.trim() || existing?.startTime || (isDaily ? undefined : '06:00'),
+    endTime: values.endTime?.trim() || existing?.endTime,
+    type: isDaily ? 'shoot' : 'makeup',
     status: isDaily ? (getScheduleStatusValue(values.status) ?? existing?.status ?? 'confirmed') : stageToStatus(stage ?? 'inquiry'),
     customer: values.customer?.trim() || existing?.customer || '新客户',
     phone: values.phone?.trim() || undefined,
     location: values.location?.trim() || undefined,
     amount: getPositiveAmount(values.amount),
-    paidAmount: existing?.paidAmount,
-    firstDepositAmount: undefined,
-    trialDepositAmount: undefined,
-    finalPaymentAmount: undefined,
-    firstDepositDate: undefined,
-    trialDate,
-    trialDepositDate: undefined,
-    finalPaymentDate: undefined,
+    trialDate: isDaily ? undefined : trialDate,
+    trialStartTime: isDaily ? undefined : values.trialStartTime?.trim() || existing?.trialStartTime,
+    trialEndTime: isDaily ? undefined : values.trialEndTime?.trim() || existing?.trialEndTime,
     brideStage: stage,
     outfitCount: !isDaily && Number.isFinite(outfitCount) && outfitCount > 0 ? Math.floor(outfitCount) : undefined,
     jewelryNeed: isDaily ? undefined : jewelryNeed,

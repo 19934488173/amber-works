@@ -12,11 +12,15 @@ import {
   stageDisplay,
 } from "../../app/bridalData";
 import { useScheduleStore } from "../../app/useScheduleStore";
-import type { BrideStage, Schedule } from "../../types/schedule";
+import type { BrideStage, BridalSubtype, Schedule } from "../../types/schedule";
 import {
-  getScheduleBrideStage,
+  getBridalServiceSlotTitle,
   getJewelryNeedLabel,
+  getScheduleBrideStage,
+  getServiceSubtypeLabel,
+  isDailyMakeup,
 } from "../../types/schedule";
+import { formatTimeRange } from "../../utils/date";
 import { formatCurrency, getRemainingAmount } from "../../utils/statistics";
 
 const filters: Array<{ key: "all" | BrideStage; label: string }> = [
@@ -28,7 +32,6 @@ const filters: Array<{ key: "all" | BrideStage; label: string }> = [
 ];
 
 type CustomerKind = "bridal" | "daily";
-const isDailyMakeup = (schedule: Schedule) => schedule.title === "生活妆";
 
 const CustomerCard = ({ schedule }: { schedule: Schedule }) => {
   const navigate = useNavigate();
@@ -36,11 +39,12 @@ const CustomerCard = ({ schedule }: { schedule: Schedule }) => {
   const remaining = getRemainingAmount(schedule);
   const isSettled = remaining === 0 && schedule.amount;
   const daily = isDailyMakeup(schedule);
+  const subtypeLabel = getServiceSubtypeLabel(schedule.serviceSubtype);
 
   return (
     <button
       type="button"
-      className="tap-card bridal-scroll-card grid min-h-23 w-full grid-cols-[54px_minmax(0,1fr)_auto] items-center gap-3 rounded-5.5 border border-(--app-border) bg-white px-4 py-3 text-left shadow-(--app-shadow)"
+      className="tap-card bridal-scroll-card app-surface-card grid min-h-23 w-full grid-cols-[54px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-left"
       onClick={() => navigate(`/customer/${schedule.id}`)}
     >
       <div className="grid h-12 w-12 place-items-center rounded-full bg-(--app-surface-soft) text-[18px] font-bold text-(--app-primary)">
@@ -57,8 +61,10 @@ const CustomerCard = ({ schedule }: { schedule: Schedule }) => {
         </div>
         <p className="mt-1 text-[12px] text-(--app-muted)">
           {daily
-            ? `服务日 ${formatCompactDate(schedule.date)}`
-            : `婚期 ${formatCompactDate(schedule.date)}`}
+            ? `预约 ${formatCompactDate(schedule.date)}${schedule.startTime ? ` · ${formatTimeRange(schedule)}` : ""}`
+            : schedule.trialDate
+              ? `试妆 ${formatCompactDate(schedule.trialDate)} · ${getBridalServiceSlotTitle(schedule.serviceSubtype as BridalSubtype)} ${formatCompactDate(schedule.date)}`
+              : `${getBridalServiceSlotTitle(schedule.serviceSubtype as BridalSubtype)} ${formatCompactDate(schedule.date)}`}
           <span className="ml-3 text-(--app-primary)">
             {formatDaysUntil(schedule.date)}
           </span>
@@ -66,7 +72,7 @@ const CustomerCard = ({ schedule }: { schedule: Schedule }) => {
         <p className="mt-1 flex items-center gap-2 text-[12px] text-(--app-muted)">
           <span className="inline-flex items-center gap-1">
             <ShopbagOutline fontSize={13} />
-            {daily ? "生活妆" : `${schedule.outfitCount ?? 0} 套`}
+            {daily ? subtypeLabel : `${subtypeLabel} · ${schedule.outfitCount ?? 0} 套`}
           </span>
           <span className="inline-flex items-center gap-1">
             {!daily && (
@@ -135,14 +141,14 @@ export const CustomersPage = () => {
         </section>
 
         <div
-          className="grid grid-cols-2 gap-2 rounded-2xl bg-(--app-surface-soft) p-1"
+          className="customers-page__kind-tabs"
           role="tablist"
           aria-label="客户类型"
         >
           {(
             [
               ["bridal", "跟妆客户"],
-              ["daily", "生活妆"],
+              ["daily", "日常生活妆"],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -150,11 +156,7 @@ export const CustomersPage = () => {
               type="button"
               role="tab"
               aria-selected={activeKind === key}
-              className={`min-h-11 rounded-xl text-[14px] font-bold transition-colors ${
-                activeKind === key
-                  ? "bg-white text-(--app-primary) shadow-sm"
-                  : "text-(--app-muted)"
-              }`}
+              className={`customers-page__kind-tab${activeKind === key ? " is-active" : ""}`}
               onClick={() => {
                 setActiveKind(key);
                 setActiveFilter("all");
@@ -176,11 +178,7 @@ export const CustomersPage = () => {
                 <button
                   key={filter.key}
                   type="button"
-                  className={`min-h-11 shrink-0 rounded-full px-4 text-[13px] font-bold transition-colors ${
-                    active
-                      ? "bg-(--app-primary) text-white shadow-[0_8px_18px_rgba(169,63,95,0.2)]"
-                      : "bg-(--app-surface-soft) text-(--app-primary-dark)"
-                  }`}
+                  className={`customers-page__filter${active ? " is-active" : ""}`}
                   onClick={() => setActiveFilter(filter.key)}
                 >
                   {filter.label}
@@ -199,7 +197,7 @@ export const CustomersPage = () => {
             ))}
           </div>
         ) : (
-          <div className="rounded-3xl border border-(--app-border) bg-white py-8 shadow-(--app-shadow)">
+          <div className="app-surface-card py-8">
             <Empty description="当前筛选下没有客户" />
             <div className="px-5 pt-4">
               <Button
