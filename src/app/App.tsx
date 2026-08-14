@@ -2,7 +2,9 @@ import { FloatingBubble, SafeArea, TabBar } from 'antd-mobile'
 import { AddOutline, CalendarOutline, PayCircleOutline, SetOutline, TeamOutline } from 'antd-mobile-icons'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { StudioBrand } from '../components/StudioBrand/StudioBrand'
+import { AuthPage } from '../pages/Auth/AuthPage'
 import { ScheduleProvider } from './ScheduleContext'
+import { useAuth } from './useAuth'
 import { getDateKeyValue } from '../utils/date'
 
 const navItems = [
@@ -15,6 +17,7 @@ const navItems = [
 export default function App() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { isConfigured, isLoading, user } = useAuth()
   const isEditor = location.pathname.startsWith('/schedule')
   const isDetail = location.pathname.startsWith('/customer/')
   const hideChrome = isEditor || isDetail
@@ -35,6 +38,18 @@ export default function App() {
     : location.pathname.startsWith('/calendar') && calendarDate
       ? `/schedule/new?serviceDate=${calendarDate}`
       : '/schedule/new'
+
+  if (isConfigured && isLoading) {
+    return (
+      <div className="grid min-h-dvh place-items-center bg-(--app-bg) text-(--app-muted)">
+        正在读取登录状态
+      </div>
+    )
+  }
+
+  if (isConfigured && !user) {
+    return <AuthPage />
+  }
 
   return (
     <ScheduleProvider>

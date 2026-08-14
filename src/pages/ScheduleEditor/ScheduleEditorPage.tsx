@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { DatePicker, Form, Input, NavBar, TextArea, Toast, Button } from 'antd-mobile'
+import { DatePicker, Form, Input, NavBar, Picker, TextArea, Toast, Button } from 'antd-mobile'
 import { CheckOutline } from 'antd-mobile-icons'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
@@ -43,6 +43,17 @@ const getStatusValue = (status?: CustomerFormValues['status']): ScheduleStatus =
 
 const paymentDateClass =
   'profile-form__date-button flex! w-full! items-center! justify-start! min-h-8.5! border-0! bg-transparent! p-0! text-[17px]! font-semibold! leading-tight! text-(--app-text)!'
+
+const timePickerColumns = [
+  Array.from({ length: 24 }, (_, hour) => ({
+    label: `${String(hour).padStart(2, '0')} 时`,
+    value: hour,
+  })),
+  Array.from({ length: 60 }, (_, minute) => ({
+    label: `${String(minute).padStart(2, '0')} 分`,
+    value: minute,
+  })),
+]
 
 export const CustomerProfileForm = ({
   initialValues,
@@ -142,6 +153,7 @@ export const CustomerProfileForm = ({
 
   const datePickerValue = datePickerField ? form.getFieldValue(datePickerField) : undefined
   const timePickerValue = timePickerField ? form.getFieldValue(timePickerField) : undefined
+  const parsedTimePickerValue = parseTimeString(timePickerValue)
 
   return (
     <div className="min-h-dvh bg-(--app-bg)">
@@ -397,14 +409,17 @@ export const CustomerProfileForm = ({
         }}
       />
 
-      <DatePicker
+      <Picker
         visible={Boolean(timePickerField)}
-        precision="minute"
-        value={parseTimeString(timePickerValue)}
+        title="选择时间"
+        columns={timePickerColumns}
+        value={[parsedTimePickerValue.getHours(), parsedTimePickerValue.getMinutes()]}
         onClose={() => setTimePickerField(null)}
-        onConfirm={(value: Date) => {
+        onConfirm={(value) => {
           if (timePickerField) {
-            form.setFieldValue(timePickerField, formatTimeString(value))
+            const nextTime = parseTimeString(timePickerValue)
+            nextTime.setHours(Number(value[0]), Number(value[1]), 0, 0)
+            form.setFieldValue(timePickerField, formatTimeString(nextTime))
           }
           setTimePickerField(null)
         }}

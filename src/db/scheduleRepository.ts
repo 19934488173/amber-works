@@ -1,6 +1,29 @@
 import { db, ensureAppDefaults } from './database'
-import type { AppSettings, BackupPayload, PaymentRecord, ReferenceImageGroup, Schedule, ScheduleDraft } from '../types/schedule'
-import { mapStatusToBrideStage } from '../types/schedule'
+import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import type {
+  AppSettings,
+  BackupPayload,
+  BrideStage,
+  JewelryNeed,
+  PaymentRecord,
+  PaymentRecordKind,
+  ReferenceImageGroup,
+  Schedule,
+  ScheduleDraft,
+  ScheduleStatus,
+  ServiceCategory,
+  ServiceSubtype,
+} from '../types/schedule'
+import {
+  bridalSubtypeOptions,
+  brideStageOptions,
+  dailySubtypeOptions,
+  jewelryNeedOptions,
+  mapStatusToBrideStage,
+  referenceImageGroupOptions,
+  scheduleStatusOptions,
+  serviceCategoryOptions,
+} from '../types/schedule'
 import { sortSchedules } from '../utils/date'
 
 const createId = () => crypto.randomUUID()
@@ -10,6 +33,11 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const asString = (value: unknown) => (typeof value === 'string' ? value : undefined)
+
+const asIsoString = (value: unknown, fallback: string) => {
+  const next = asString(value)
+  return next && !Number.isNaN(Date.parse(next)) ? next : fallback
+}
 
 const asDateKey = (value: unknown) => {
   const next = asString(value)
@@ -26,10 +54,21 @@ const asNonZeroNumber = (value: unknown) => {
   return Number.isFinite(next) && next !== 0 ? next : undefined
 }
 
-const referenceImageGroups: ReferenceImageGroup[] = ['makeup', 'jewelry', 'outfit', 'trial']
+const scheduleStatuses = scheduleStatusOptions.map((option) => option.value)
+const serviceCategories = serviceCategoryOptions.map((option) => option.value)
+const serviceSubtypes = [...bridalSubtypeOptions, ...dailySubtypeOptions].map((option) => option.value)
+const brideStages = brideStageOptions.map((option) => option.value)
+const jewelryNeeds = jewelryNeedOptions.map((option) => option.value)
+const referenceImageGroups = referenceImageGroupOptions.map((option) => option.value)
+const paymentRecordKinds: PaymentRecordKind[] = ['first_deposit', 'trial_deposit', 'final_payment', 'other']
+
+const asOneOf = <T extends string>(value: unknown, options: readonly T[]) => {
+  const next = asString(value)
+  return next && options.includes(next as T) ? next as T : undefined
+}
 
 const asReferenceImageGroup = (value: unknown): ReferenceImageGroup =>
-  referenceImageGroups.includes(value as ReferenceImageGroup) ? value as ReferenceImageGroup : 'makeup'
+  asOneOf(value, referenceImageGroups) ?? 'makeup'
 
 const normalizePaymentRecords = (records: unknown, createdAt: string): PaymentRecord[] => {
   if (!Array.isArray(records)) return []
@@ -38,17 +77,17 @@ const normalizePaymentRecords = (records: unknown, createdAt: string): PaymentRe
     .filter(isPlainObject)
     .map((record) => ({
       id: asString(record.id) ?? createId(),
-      kind: asString(record.kind) as PaymentRecord['kind'],
+      kind: asOneOf(record.kind, paymentRecordKinds),
       label: asString(record.label) || '收款',
       date: asDateKey(record.date) ?? '',
       amount: asNonZeroNumber(record.amount) ?? 0,
-      createdAt: asString(record.createdAt) ?? createdAt,
+      createdAt: asIsoString(record.createdAt, createdAt),
     }))
     .filter((record) =>
-      ['first_deposit', 'trial_deposit', 'final_payment', 'other'].includes(record.kind)
+      record.kind
       && dateKeyPattern.test(record.date)
       && record.amount !== 0,
-    )
+    ) as PaymentRecord[]
 }
 
 const normalizeSchedule = (value: unknown): Schedule => {
@@ -59,11 +98,11 @@ const normalizeSchedule = (value: unknown): Schedule => {
   const date = asDateKey(value.date)
   if (!date) throw new Error('备份文件包含无效日期')
 
-  const serviceCategory = asString(value.serviceCategory) as Schedule['serviceCategory']
-  const serviceSubtype = asString(value.serviceSubtype) as Schedule['serviceSubtype']
+  const serviceCategory = asOneOf<ServiceCategory>(value.serviceCategory, serviceCategories)
+  const serviceSubtype = asOneOf<ServiceSubtype>(value.serviceSubtype, serviceSubtypes)
   if (!serviceCategory || !serviceSubtype) throw new Error('备份文件包含无效客户类型')
 
-  const status = asString(value.status) as Schedule['status'] | undefined
+  const status = asOneOf<ScheduleStatus>(value.status, scheduleStatuses)
 
   return {
     id,
@@ -81,9 +120,9 @@ const normalizeSchedule = (value: unknown): Schedule => {
     trialDate: asDateKey(value.trialDate),
     trialStartTime: asString(value.trialStartTime),
     trialEndTime: asString(value.trialEndTime),
-    brideStage: asString(value.brideStage) as Schedule['brideStage'],
+    brideStage: asOneOf<BrideStage>(value.brideStage, brideStages),
     outfitCount: asPositiveNumber(value.outfitCount),
-    jewelryNeed: asString(value.jewelryNeed) as Schedule['jewelryNeed'],
+    jewelryNeed: asOneOf<JewelryNeed>(value.jewelryNeed, jewelryNeeds),
     jewelryItems: asString(value.jewelryItems),
     note: asString(value.note),
     referenceImages: Array.isArray(value.referenceImages)
@@ -92,12 +131,12 @@ const normalizeSchedule = (value: unknown): Schedule => {
         url: asString(image.url) ?? '',
         name: asString(image.name),
         group: asReferenceImageGroup(image.group),
-        createdAt: asString(image.createdAt) ?? now,
+        createdAt: asIsoString(image.createdAt, now),
       })).filter((image) => image.url)
       : [],
     paymentRecords: normalizePaymentRecords(value.paymentRecords, now),
-    createdAt: asString(value.createdAt) ?? now,
-    updatedAt: asString(value.updatedAt) ?? now,
+    createdAt: asIsoString(value.createdAt, now),
+    updatedAt: asIsoString(value.updatedAt, now),
   }
 }
 
@@ -106,7 +145,7 @@ const normalizeDraft = (draft: ScheduleDraft): ScheduleDraft => ({
   paymentRecords: normalizePaymentRecords(draft.paymentRecords, new Date().toISOString()),
 })
 
-export const scheduleRepository = {
+export const localScheduleRepository = {
   async initialize() {
     await ensureAppDefaults()
   },
@@ -236,5 +275,362 @@ export const scheduleRepository = {
       updatedAt: now,
       lastBackupAt: now,
     })
+  },
+}
+
+type Repository = typeof localScheduleRepository
+
+type CloudScheduleRow = {
+  id: string
+  user_id: string
+  date: string
+  trial_date: string | null
+  status: Schedule['status']
+  service_category: Schedule['serviceCategory']
+  data: Schedule
+  created_at: string
+  updated_at: string
+}
+
+type CloudSettingsRow = {
+  user_id: string
+  data: AppSettings
+  created_at: string
+  updated_at: string
+}
+
+
+
+
+type ReplaceUserBackupParams = {
+  p_schedules: CloudScheduleRow[]
+  p_settings: CloudSettingsRow
+}
+
+const assertSupabase = () => {
+  if (!supabase) throw new Error('还没有配置 Supabase')
+  return supabase
+}
+
+const throwCloudError = (error: { message: string } | null, fallback: string) => {
+  if (error) throw new Error(`${fallback}：${error.message}`)
+}
+
+const throwConflictError = () => {
+  throw new Error('云端数据已被其他设备修改，请刷新后再试')
+}
+
+const normalizeCloudScheduleRow = (row: Pick<CloudScheduleRow, 'data' | 'updated_at'>) =>
+  normalizeSchedule({ ...row.data, updatedAt: row.updated_at })
+
+const getCloudUserId = async () => {
+  if (!isSupabaseConfigured || !supabase) return null
+  const { data, error } = await supabase.auth.getUser()
+  if (error) throw new Error(`读取登录状态失败：${error.message}`)
+  return data.user?.id ?? null
+}
+
+const createScheduleRow = (userId: string, schedule: Schedule): CloudScheduleRow => ({
+  id: schedule.id,
+  user_id: userId,
+  date: schedule.date,
+  trial_date: schedule.trialDate ?? null,
+  status: schedule.status,
+  service_category: schedule.serviceCategory,
+  data: schedule,
+  created_at: schedule.createdAt,
+  updated_at: schedule.updatedAt,
+})
+
+const createSettingsRow = (userId: string, settings: AppSettings): CloudSettingsRow => ({
+  user_id: userId,
+  data: settings,
+  created_at: settings.createdAt,
+  updated_at: settings.updatedAt,
+})
+
+const createCloudRepository = (userId: string): Repository => ({
+  async initialize() {
+    await this.getSettings()
+  },
+
+  async list() {
+    const client = assertSupabase()
+    const { data, error } = await client
+      .from('schedules')
+      .select('data, updated_at')
+      .eq('user_id', userId)
+
+    throwCloudError(error, '读取云端档期失败')
+    return sortSchedules((data ?? []).map((row) => normalizeCloudScheduleRow(row)))
+  },
+
+  async get(id: string) {
+    const client = assertSupabase()
+    const { data, error } = await client
+      .from('schedules')
+      .select('data, updated_at')
+      .eq('user_id', userId)
+      .eq('id', id)
+      .maybeSingle()
+
+    throwCloudError(error, '读取云端档期失败')
+    return data ? normalizeCloudScheduleRow(data) : undefined
+  },
+
+  async create(draft: ScheduleDraft) {
+    const now = new Date().toISOString()
+    const schedule: Schedule = {
+      ...normalizeDraft(draft),
+      id: createId(),
+      createdAt: now,
+      updatedAt: now,
+    }
+
+    const client = assertSupabase()
+    const { error } = await client.from('schedules').insert(createScheduleRow(userId, schedule))
+    throwCloudError(error, '保存云端档期失败')
+    return schedule
+  },
+
+  async update(id: string, draft: ScheduleDraft) {
+    const existing = await this.get(id)
+    if (!existing) throw new Error('档期不存在')
+
+    const next: Schedule = {
+      ...existing,
+      ...normalizeDraft(draft),
+      id,
+      updatedAt: new Date().toISOString(),
+    }
+
+    const client = assertSupabase()
+    const { data, error } = await client
+      .from('schedules')
+      .update(createScheduleRow(userId, next))
+      .eq('user_id', userId)
+      .eq('id', id)
+      .eq('updated_at', existing.updatedAt)
+      .select('id')
+      .maybeSingle()
+
+    throwCloudError(error, '更新云端档期失败')
+    if (!data) throwConflictError()
+    return next
+  },
+
+  async updateStatus(id: string, status: Schedule['status']) {
+    const existing = await this.get(id)
+    if (!existing) throw new Error('档期不存在')
+
+    const next: Schedule = {
+      ...existing,
+      status,
+      brideStage: mapStatusToBrideStage(status),
+      updatedAt: new Date().toISOString(),
+    }
+
+    const client = assertSupabase()
+    const { data, error } = await client
+      .from('schedules')
+      .update(createScheduleRow(userId, next))
+      .eq('user_id', userId)
+      .eq('id', id)
+      .eq('updated_at', existing.updatedAt)
+      .select('id')
+      .maybeSingle()
+
+    throwCloudError(error, '更新云端状态失败')
+    if (!data) throwConflictError()
+  },
+
+  async remove(id: string) {
+    const client = assertSupabase()
+    const { error } = await client
+      .from('schedules')
+      .delete()
+      .eq('user_id', userId)
+      .eq('id', id)
+
+    throwCloudError(error, '删除云端档期失败')
+  },
+
+  async duplicate(source: Schedule, date: string) {
+    return this.create({
+      title: source.title,
+      serviceCategory: source.serviceCategory,
+      serviceSubtype: source.serviceSubtype,
+      date,
+      startTime: source.startTime,
+      endTime: source.endTime,
+      status: 'pending',
+      customer: source.customer,
+      phone: source.phone,
+      location: source.location,
+      amount: source.amount,
+      trialDate: source.trialDate,
+      trialStartTime: source.trialStartTime,
+      trialEndTime: source.trialEndTime,
+      brideStage: 'inquiry',
+      outfitCount: source.outfitCount,
+      jewelryNeed: source.jewelryNeed,
+      jewelryItems: source.jewelryItems,
+      note: source.note,
+      referenceImages: [],
+      paymentRecords: [],
+    })
+  },
+
+  async getSettings() {
+    const client = assertSupabase()
+    const { data, error } = await client
+      .from('app_settings')
+      .select('data')
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    throwCloudError(error, '读取云端设置失败')
+    if (data?.data) return data.data as AppSettings
+
+    const now = new Date().toISOString()
+    const settings: AppSettings = { id: 'default', createdAt: now, updatedAt: now }
+    const { error: upsertError } = await client
+      .from('app_settings')
+      .upsert(createSettingsRow(userId, settings), { onConflict: 'user_id' })
+
+    throwCloudError(upsertError, '初始化云端设置失败')
+    return settings
+  },
+
+  async exportBackup(): Promise<BackupPayload> {
+    return {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      schedules: await this.list(),
+      settings: await this.getSettings(),
+    }
+  },
+
+  async importBackup(payload: BackupPayload) {
+    if (payload.version !== 1 || !Array.isArray(payload.schedules)) {
+      throw new Error('备份文件格式不正确')
+    }
+
+    const client = assertSupabase()
+    const now = new Date().toISOString()
+    const schedules = payload.schedules.map(normalizeSchedule)
+    const settings: AppSettings = {
+      id: 'default',
+      createdAt: payload.settings?.createdAt ?? now,
+      updatedAt: now,
+      lastBackupAt: payload.settings?.lastBackupAt,
+    }
+
+    const { error } = await client.rpc('replace_user_backup', {
+      p_schedules: schedules.map((schedule) => createScheduleRow(userId, schedule)),
+      p_settings: createSettingsRow(userId, settings),
+    } satisfies ReplaceUserBackupParams)
+
+    throwCloudError(error, '导入云端备份失败')
+  },
+
+  async clearAll() {
+    const client = assertSupabase()
+    const now = new Date().toISOString()
+    const existing = await this.getSettings()
+
+    const { error } = await client.rpc('replace_user_backup', {
+      p_schedules: [],
+      p_settings: createSettingsRow(userId, {
+        id: 'default',
+        createdAt: existing.createdAt,
+        updatedAt: now,
+        lastBackupAt: existing.lastBackupAt,
+      }),
+    } satisfies ReplaceUserBackupParams)
+
+    throwCloudError(error, '清空云端数据失败')
+  },
+
+  async markBackupNow() {
+    const now = new Date().toISOString()
+    const settings = await this.getSettings()
+    const client = assertSupabase()
+    const { error } = await client
+      .from('app_settings')
+      .upsert(createSettingsRow(userId, {
+        id: 'default',
+        createdAt: settings.createdAt,
+        updatedAt: now,
+        lastBackupAt: now,
+      }), { onConflict: 'user_id' })
+
+    throwCloudError(error, '更新备份时间失败')
+  },
+})
+
+const getActiveRepository = async () => {
+  const userId = await getCloudUserId()
+  return userId ? createCloudRepository(userId) : localScheduleRepository
+}
+
+export const scheduleRepository = {
+  async initialize() {
+    await (await getActiveRepository()).initialize()
+  },
+
+  async list() {
+    return (await getActiveRepository()).list()
+  },
+
+  async get(id: string) {
+    return (await getActiveRepository()).get(id)
+  },
+
+  async create(draft: ScheduleDraft) {
+    return (await getActiveRepository()).create(draft)
+  },
+
+  async update(id: string, draft: ScheduleDraft) {
+    return (await getActiveRepository()).update(id, draft)
+  },
+
+  async updateStatus(id: string, status: Schedule['status']) {
+    return (await getActiveRepository()).updateStatus(id, status)
+  },
+
+  async remove(id: string) {
+    return (await getActiveRepository()).remove(id)
+  },
+
+  async duplicate(source: Schedule, date: string) {
+    return (await getActiveRepository()).duplicate(source, date)
+  },
+
+  async getSettings() {
+    return (await getActiveRepository()).getSettings()
+  },
+
+  async exportBackup() {
+    return (await getActiveRepository()).exportBackup()
+  },
+
+  async importBackup(payload: BackupPayload) {
+    return (await getActiveRepository()).importBackup(payload)
+  },
+
+  async clearAll() {
+    return (await getActiveRepository()).clearAll()
+  },
+
+  async markBackupNow() {
+    return (await getActiveRepository()).markBackupNow()
+  },
+
+  async uploadLocalDataToCloud() {
+    const userId = await getCloudUserId()
+    if (!userId) throw new Error('请先登录账号')
+    const payload = await localScheduleRepository.exportBackup()
+    await createCloudRepository(userId).importBackup(payload)
   },
 }
