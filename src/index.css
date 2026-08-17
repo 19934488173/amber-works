@@ -1365,7 +1365,278 @@ p {
 }
 
 .income-page__hero {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   padding-top: 2px;
+}
+
+.income-page__hero-copy {
+  min-width: 0;
+}
+
+.income-page__hero-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.income-page__month-card {
+  overflow: hidden;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-card-radius);
+  background: #fff;
+  box-shadow: var(--app-shadow);
+  padding: 12px;
+}
+
+.income-page__month-switch {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 38px;
+  align-items: center;
+  gap: 10px;
+}
+
+.income-page__month-title {
+  min-width: 0;
+  text-align: center;
+}
+
+.income-page__month-title strong {
+  display: block;
+  color: var(--app-text);
+  font-size: 18px;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.income-page__month-title span {
+  display: block;
+  margin-top: 3px;
+  color: var(--app-soft-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.income-page__today-btn {
+  display: block;
+  width: 100%;
+  min-height: 38px;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: var(--app-surface-soft);
+  color: var(--app-primary);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.income-page__year-strip {
+  overflow: hidden;
+  border: 1px solid rgba(237, 218, 220, 0.92);
+  border-radius: var(--app-card-radius);
+  background: linear-gradient(180deg, #fffdfd 0%, #fff7f8 100%);
+  box-shadow: var(--app-shadow);
+  padding: 14px;
+}
+
+.income-page__year-strip > div:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.income-page__year-strip span {
+  color: var(--app-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.income-page__year-strip strong {
+  color: var(--app-primary-dark);
+  font-size: 21px;
+  font-weight: 850;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.income-page__year-strip strong.is-negative {
+  color: #a74444;
+}
+
+.income-page__year-strip dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+.income-page__year-strip dl div {
+  min-width: 0;
+  border-radius: var(--app-soft-radius);
+  background: rgba(255, 255, 255, 0.74);
+  padding: 9px 8px;
+}
+
+.income-page__year-strip dt {
+  color: var(--app-soft-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.income-page__year-strip dd {
+  overflow-wrap: anywhere;
+  margin: 4px 0 0;
+  color: var(--app-text);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.income-page__year-switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  border: 1px solid var(--app-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.84);
+  padding: 8px 10px;
+  color: var(--app-text);
+  box-shadow: var(--app-shadow);
+}
+
+.income-page__year-switch strong {
+  flex: 1;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.income-page__year-btn {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--app-surface-soft);
+  color: var(--app-primary);
+}
+
+.income-page__year-btn:disabled {
+  opacity: 0.45;
+}
+
+.income-page__year-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: var(--app-surface-soft);
+  padding: 6px 10px;
+  color: var(--app-primary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.income-page__year-card {
+  overflow: hidden;
+  border: 1px solid rgba(237, 218, 220, 0.92);
+  border-radius: var(--app-card-radius);
+  background: linear-gradient(180deg, #fffdfd 0%, #fff7f8 100%);
+  box-shadow: var(--app-shadow);
+  padding: 16px;
+}
+
+.income-page__year-total {
+  margin-top: 8px;
+}
+
+.income-page__year-total span {
+  color: var(--app-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.income-page__year-total strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--app-primary-dark);
+  font-size: 28px;
+  font-weight: 850;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+.income-page__year-total strong.is-negative {
+  color: #a74444;
+}
+
+.income-page__year-total small {
+  display: block;
+  margin-top: 6px;
+  color: var(--app-soft-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.income-page__year-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.income-page__year-metric {
+  overflow: hidden;
+  border-radius: var(--app-inner-radius);
+  padding: 12px;
+}
+
+.income-page__year-metric span {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.income-page__year-metric strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.income-page__year-metric small {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.income-page__year-metric.is-received {
+  background: linear-gradient(145deg, #b34a68 0%, #a93f5f 52%, #963956 100%);
+  color: #fff;
+}
+
+.income-page__year-metric.is-outflow {
+  border: 1px solid rgba(184, 83, 83, 0.15);
+  background: #fff8f7;
+  color: #8f4747;
+}
+
+.income-page__year-metric.is-pending {
+  border: 1px solid #ead4bc;
+  background: linear-gradient(180deg, #fcf4ec 0%, #fbf1e9 100%);
+  color: #5f3926;
+}
+
+.income-page__year-metric.is-average {
+  border: 1px solid var(--app-border);
+  background: #fff;
+  color: var(--app-text);
 }
 
 .income-page__eyebrow {
@@ -1541,6 +1812,10 @@ p {
   gap: 10px;
 }
 
+.income-page__chart-row.is-annual {
+  grid-template-columns: 92px minmax(0, 1fr) 78px;
+}
+
 .income-page__chart-label {
   display: flex;
   flex-direction: column;
@@ -1569,6 +1844,12 @@ p {
   font-weight: 700;
 }
 
+.income-page__chart-label small {
+  color: var(--app-soft-muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
 .income-page__chart-bar {
   height: 8px;
   overflow: hidden;
@@ -1581,6 +1862,10 @@ p {
   min-width: 8px;
   border-radius: 999px;
   background: #ddb3bf;
+}
+
+.income-page__chart-row.is-annual .income-page__chart-fill {
+  min-width: 0;
 }
 
 .income-page__chart-fill.is-current {
@@ -3300,6 +3585,72 @@ p {
   border-radius: var(--app-inner-radius);
   background: #fff8f9;
   padding: 10px 11px;
+}
+
+.customer-card__schedule-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 10px 10px 9px;
+}
+
+.customer-card__schedule-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.customer-card__schedule-label {
+  color: var(--app-primary);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.customer-card__schedule-label.is-main {
+  color: var(--app-text);
+}
+
+.customer-card__schedule-head strong {
+  color: var(--app-text);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.customer-card__schedule-meta {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  color: var(--app-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.customer-card__schedule-meta svg {
+  color: var(--app-soft-muted);
+  font-size: 15px;
+}
+
+.customer-card__schedule-meta span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-card__schedule-meta em {
+  border-radius: var(--app-pill-radius);
+  background: #fff;
+  padding: 3px 7px;
+  color: var(--app-primary);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
 }
 .customer-card__line {
   display: grid;

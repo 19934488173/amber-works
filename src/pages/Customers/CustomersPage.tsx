@@ -57,21 +57,10 @@ const dailyFilters: Array<{ key: "all" | ScheduleStatus; label: string }> = [
 
 type CustomerKind = "bridal" | "daily";
 
-const getServiceSummary = (schedule: Schedule) => {
-  if (isDailyMakeup(schedule)) {
-    return `预约 ${formatCompactDate(schedule.date)}`;
-  }
-
-  const serviceTitle = getBridalServiceSlotTitle(
-    schedule.serviceSubtype as BridalSubtype
-  );
-  if (schedule.trialDate) {
-    return `试妆 ${formatCompactDate(
-      schedule.trialDate
-    )} · ${serviceTitle} ${formatCompactDate(schedule.date)}`;
-  }
-
-  return `${serviceTitle} ${formatCompactDate(schedule.date)}`;
+const formatTimeLabel = (startTime?: string, endTime?: string) => {
+  if (startTime && endTime) return `${startTime} - ${endTime}`;
+  if (startTime) return startTime;
+  return "全天";
 };
 
 const getCardMeta = (schedule: Schedule) => {
@@ -102,7 +91,9 @@ const CustomerCard = ({ schedule }: { schedule: Schedule }) => {
   const billable = Number(schedule.amount ?? 0);
   const isSettled = billable > 0 && remaining === 0;
   const daily = isDailyMakeup(schedule);
-  const serviceSummary = getServiceSummary(schedule);
+  const serviceTitle = daily
+    ? "预约档期"
+    : getBridalServiceSlotTitle(schedule.serviceSubtype as BridalSubtype);
   const note = schedule.note?.trim();
 
   return (
@@ -130,15 +121,51 @@ const CustomerCard = ({ schedule }: { schedule: Schedule }) => {
       </div>
 
       <div className="customer-card__info">
-        <div className="customer-card__line is-primary">
-          <CalendarOutline />
-          <span>{serviceSummary}</span>
-          <em>{formatDaysUntil(schedule.date)}</em>
-        </div>
-        <div className="customer-card__line">
-          <ClockCircleOutline />
-          <span>{formatTimeRange(schedule)}</span>
-        </div>
+        {daily ? (
+          <>
+            <div className="customer-card__line is-primary">
+              <CalendarOutline />
+              <span>{`预约 ${formatCompactDate(schedule.date)}`}</span>
+              <em>{formatDaysUntil(schedule.date)}</em>
+            </div>
+            <div className="customer-card__line">
+              <ClockCircleOutline />
+              <span>{formatTimeRange(schedule)}</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="customer-card__schedule-row">
+              <div className="customer-card__schedule-head">
+                <span className="customer-card__schedule-label">试妆</span>
+                <strong>
+                  {schedule.trialDate ? formatCompactDate(schedule.trialDate) : "未填日期"}
+                </strong>
+              </div>
+              <div className="customer-card__schedule-meta">
+                <ClockCircleOutline />
+                <span>
+                  {schedule.trialDate
+                    ? formatTimeLabel(schedule.trialStartTime, schedule.trialEndTime)
+                    : "试妆时间未填"}
+                </span>
+              </div>
+            </div>
+            <div className="customer-card__schedule-row">
+              <div className="customer-card__schedule-head">
+                <span className="customer-card__schedule-label is-main">
+                  {serviceTitle}
+                </span>
+                <strong>{formatCompactDate(schedule.date)}</strong>
+              </div>
+              <div className="customer-card__schedule-meta">
+                <ClockCircleOutline />
+                <span>{formatTimeRange(schedule)}</span>
+                <em>{formatDaysUntil(schedule.date)}</em>
+              </div>
+            </div>
+          </>
+        )}
         <div className="customer-card__line">
           <EnvironmentOutline />
           <span>{schedule.location || "未填写场地"}</span>

@@ -1,26 +1,30 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { scheduleRepository } from '../db/scheduleRepository'
+import { createScheduleRepository } from '../db/scheduleRepository'
 import type { Schedule, ScheduleDraft } from '../types/schedule'
 
 type LoadingState = 'idle' | 'loading' | 'ready' | 'error'
 
-export const useSchedules = () => {
+export const useSchedules = (knownUserId?: string | null) => {
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [state, setState] = useState<LoadingState>('idle')
   const [error, setError] = useState<string | null>(null)
+  const scheduleRepository = useMemo(() => createScheduleRepository(knownUserId), [knownUserId])
 
   const refresh = useCallback(async () => {
     try {
       setState('loading')
-      await scheduleRepository.initialize()
-      setSchedules(await scheduleRepository.list())
+      const [, nextSchedules] = await Promise.all([
+        scheduleRepository.initialize(),
+        scheduleRepository.list(),
+      ])
+      setSchedules(nextSchedules)
       setError(null)
       setState('ready')
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : '读取档期失败')
       setState('error')
     }
-  }, [])
+  }, [scheduleRepository])
 
   useEffect(() => {
     void refresh()
@@ -32,7 +36,7 @@ export const useSchedules = () => {
       await refresh()
       return schedule
     },
-    [refresh],
+    [refresh, scheduleRepository],
   )
 
   const updateSchedule = useCallback(
@@ -41,7 +45,7 @@ export const useSchedules = () => {
       await refresh()
       return schedule
     },
-    [refresh],
+    [refresh, scheduleRepository],
   )
 
   const removeSchedule = useCallback(
@@ -49,7 +53,7 @@ export const useSchedules = () => {
       await scheduleRepository.remove(id)
       await refresh()
     },
-    [refresh],
+    [refresh, scheduleRepository],
   )
 
   const updateStatus = useCallback(
@@ -57,7 +61,7 @@ export const useSchedules = () => {
       await scheduleRepository.updateStatus(id, status)
       await refresh()
     },
-    [refresh],
+    [refresh, scheduleRepository],
   )
 
   const duplicateSchedule = useCallback(
@@ -66,7 +70,7 @@ export const useSchedules = () => {
       await refresh()
       return schedule
     },
-    [refresh],
+    [refresh, scheduleRepository],
   )
 
   return useMemo(

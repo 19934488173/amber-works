@@ -10,7 +10,6 @@ import {
   NavBar,
   ProgressBar,
   Selector,
-  SpinLoading,
   Toast,
   TextArea,
 } from "antd-mobile";
@@ -30,6 +29,7 @@ import {
   StarOutline,
 } from "antd-mobile-icons";
 import { useNavigate, useParams } from "react-router-dom";
+import { AppLoading } from "../../components/AppLoading/AppLoading";
 import {
   fileToDataUrl,
   formatCompactDate,
@@ -330,9 +330,7 @@ export const CustomerDetailPage = () => {
           客户档案
         </NavBar>
         {state === "loading" || state === "idle" ? (
-          <div className="grid min-h-60 place-items-center">
-            <SpinLoading color="primary" />
-          </div>
+          <AppLoading tone="compact" title="正在读取客户档案" description="同步完成后会自动打开" />
         ) : (
           <div className="px-5 pt-8">
             <Empty description="没有找到客户档案" />

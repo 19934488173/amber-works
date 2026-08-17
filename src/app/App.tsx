@@ -1,6 +1,7 @@
 import { FloatingBubble, SafeArea, TabBar } from 'antd-mobile'
 import { AddOutline, CalendarOutline, PayCircleOutline, SetOutline, TeamOutline } from 'antd-mobile-icons'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { AppLoading } from '../components/AppLoading/AppLoading'
 import { StudioBrand } from '../components/StudioBrand/StudioBrand'
 import { AuthPage } from '../pages/Auth/AuthPage'
 import { ScheduleProvider } from './ScheduleContext'
@@ -41,11 +42,7 @@ export default function App() {
       : '/schedule/new'
 
   if (isConfigured && isLoading) {
-    return (
-      <div className="grid min-h-dvh place-items-center bg-(--app-bg) text-(--app-muted)">
-        正在读取登录状态
-      </div>
-    )
+    return <AppLoading tone="full" title="正在读取登录状态" description="正在确认账号和云端连接" />
   }
 
   if ((!isConfigured && !isLocalModeEnabled) || (isConfigured && !user)) {
@@ -53,7 +50,7 @@ export default function App() {
   }
 
   return (
-    <ScheduleProvider>
+    <ScheduleProvider userId={user?.id}>
       <div className="app-shell mx-auto min-h-dvh w-full max-w-107.5 bg-(--app-bg) text-(--app-text) sm:my-2 sm:overflow-hidden sm:rounded-7 sm:border sm:border-(--app-border)">
         <main className={hideChrome ? 'min-h-dvh bg-(--app-bg)' : 'min-h-dvh bg-(--app-bg) px-4 pb-26 pt-4'} id="main-content">
           {!hideChrome ? (

@@ -7,17 +7,18 @@ import {
   SetOutline,
   UploadOutline,
 } from 'antd-mobile-icons'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useAuth } from '../../app/useAuth'
 import { useScheduleStore } from '../../app/useScheduleStore'
 import { downloadJsonBackup, readBackupFile } from '../../utils/export'
-import { scheduleRepository } from '../../db/scheduleRepository'
+import { createScheduleRepository } from '../../db/scheduleRepository'
 import { StudioBrand } from '../../components/StudioBrand/StudioBrand'
 
 export const SettingsPage = () => {
   const { refresh } = useScheduleStore()
   const { isConfigured, signOut, user } = useAuth()
   const [isUploadingLocal, setIsUploadingLocal] = useState(false)
+  const scheduleRepository = useMemo(() => createScheduleRepository(user?.id), [user?.id])
 
   const exportBackup = async () => {
     try {

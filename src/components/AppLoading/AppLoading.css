@@ -1,0 +1,234 @@
+.app-loading {
+  display: grid;
+  width: 100%;
+  min-height: 240px;
+  place-items: center;
+  background: var(--app-bg);
+  padding: 28px 18px;
+  color: var(--app-text);
+
+}
+
+.app-loading--full {
+  min-height: 100dvh;
+
+}
+
+.app-loading--section {
+  min-height: 100dvh;
+
+}
+
+.app-loading--compact {
+  min-height: 220px;
+  padding: 18px 10px;
+
+}
+
+.app-loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 248, 248, 0.62);
+  backdrop-filter: blur(6px);
+  padding: 18px;
+}
+
+.app-loading--overlay {
+  min-height: auto;
+  background: transparent;
+  padding: 0;
+}
+
+.app-loading--overlay .app-loading__card {
+  width: min(100%, 286px);
+  padding: 22px 20px 18px;
+}
+
+.app-loading__card {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  width: min(100%, 310px);
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(237, 218, 220, 0.92);
+  border-radius: var(--app-inner-radius);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(253, 242, 244, 0.92));
+  box-shadow: var(--app-shadow);
+  padding: 24px 22px 20px;
+  text-align: center;
+
+}
+
+.app-loading--compact .app-loading__card {
+  width: min(100%, 260px);
+  padding: 20px 18px 17px;
+
+}
+
+.app-loading__card::before {
+  position: absolute;
+  inset: -80px auto auto 50%;
+  z-index: -1;
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(169, 63, 95, 0.16), rgba(169, 63, 95, 0));
+  content: '';
+  transform: translateX(-50%);
+
+}
+
+.app-loading__mark {
+  position: relative;
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(169, 63, 95, 0.14);
+
+}
+
+.app-loading__mark::before {
+  position: absolute;
+  inset: 9px;
+  border: 2px solid rgba(169, 63, 95, 0.18);
+  border-top-color: var(--app-primary);
+  border-radius: inherit;
+  content: '';
+  animation: app-loading-spin 950ms linear infinite;
+
+}
+
+.app-loading__mark span {
+  position: absolute;
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--app-primary);
+  opacity: 0.92;
+  animation: app-loading-pulse 1.1s ease-in-out infinite;
+
+}
+
+.app-loading__mark span:nth-child(1) {
+  transform: translate(-11px, 8px);
+
+}
+
+.app-loading__mark span:nth-child(2) {
+  animation-delay: 120ms;
+  transform: translate(0, -10px);
+
+}
+
+.app-loading__mark span:nth-child(3) {
+  animation-delay: 240ms;
+  transform: translate(11px, 8px);
+
+}
+
+.app-loading__copy {
+  margin-top: 15px;
+
+}
+
+.app-loading__copy strong {
+  display: block;
+  color: var(--app-text);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.25;
+
+}
+
+.app-loading__copy p {
+  margin-top: 6px;
+  color: var(--app-muted);
+  font-size: 13px;
+  line-height: 1.45;
+
+}
+
+.app-loading__bar {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 5px;
+  margin-top: 18px;
+  border-radius: 999px;
+  background: rgba(169, 63, 95, 0.1);
+
+}
+
+.app-loading__bar span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 42%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--app-primary), #c98972);
+  animation: app-loading-bar 1.2s ease-in-out infinite;
+
+}
+
+.app-loading--compact .app-loading__copy strong {
+  font-size: 15px;
+
+}
+
+.app-loading--compact .app-loading__copy p {
+  font-size: 12px;
+
+}
+
+
+@keyframes app-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+
+}
+
+
+@keyframes app-loading-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    scale: 0.82;
+  }
+  50% {
+    opacity: 1;
+    scale: 1;
+  }
+
+}
+
+
+@keyframes app-loading-bar {
+  0% {
+    transform: translateX(-110%);
+  }
+  55%,
+  100% {
+    transform: translateX(250%);
+  }
+
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+.app-loading__mark::before,
+.app-loading__mark span,
+.app-loading__bar span {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+
+}

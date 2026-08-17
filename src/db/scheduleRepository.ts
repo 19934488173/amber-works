@@ -589,68 +589,70 @@ const createCloudRepository = (userId: string): Repository => ({
   },
 })
 
-const getActiveRepository = async () => {
-  const userId = await getCloudUserId()
+const getActiveRepository = async (knownUserId?: string | null) => {
+  const userId = knownUserId ?? await getCloudUserId()
   return userId ? createCloudRepository(userId) : localScheduleRepository
 }
 
-export const scheduleRepository = {
+export const createScheduleRepository = (knownUserId?: string | null) => ({
   async initialize() {
-    await (await getActiveRepository()).initialize()
+    await (await getActiveRepository(knownUserId)).initialize()
   },
 
   async list() {
-    return (await getActiveRepository()).list()
+    return (await getActiveRepository(knownUserId)).list()
   },
 
   async get(id: string) {
-    return (await getActiveRepository()).get(id)
+    return (await getActiveRepository(knownUserId)).get(id)
   },
 
   async create(draft: ScheduleDraft) {
-    return (await getActiveRepository()).create(draft)
+    return (await getActiveRepository(knownUserId)).create(draft)
   },
 
   async update(id: string, draft: ScheduleDraft) {
-    return (await getActiveRepository()).update(id, draft)
+    return (await getActiveRepository(knownUserId)).update(id, draft)
   },
 
   async updateStatus(id: string, status: Schedule['status']) {
-    return (await getActiveRepository()).updateStatus(id, status)
+    return (await getActiveRepository(knownUserId)).updateStatus(id, status)
   },
 
   async remove(id: string) {
-    return (await getActiveRepository()).remove(id)
+    return (await getActiveRepository(knownUserId)).remove(id)
   },
 
   async duplicate(source: Schedule, date: string) {
-    return (await getActiveRepository()).duplicate(source, date)
+    return (await getActiveRepository(knownUserId)).duplicate(source, date)
   },
 
   async getSettings() {
-    return (await getActiveRepository()).getSettings()
+    return (await getActiveRepository(knownUserId)).getSettings()
   },
 
   async exportBackup() {
-    return (await getActiveRepository()).exportBackup()
+    return (await getActiveRepository(knownUserId)).exportBackup()
   },
 
   async importBackup(payload: BackupPayload) {
-    return (await getActiveRepository()).importBackup(payload)
+    return (await getActiveRepository(knownUserId)).importBackup(payload)
   },
 
   async clearAll() {
-    return (await getActiveRepository()).clearAll()
+    return (await getActiveRepository(knownUserId)).clearAll()
   },
 
   async markBackupNow() {
-    return (await getActiveRepository()).markBackupNow()
+    return (await getActiveRepository(knownUserId)).markBackupNow()
   },
 
   async uploadLocalDataToCloud() {
-    const userId = await getCloudUserId()
+    const userId = knownUserId ?? await getCloudUserId()
     if (!userId) throw new Error('请先登录账号')
     const payload = await localScheduleRepository.exportBackup()
     await createCloudRepository(userId).importBackup(payload)
   },
-}
+})
+
+export const scheduleRepository = createScheduleRepository()

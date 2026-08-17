@@ -1,5 +1,5 @@
 import { lazy } from 'react'
-import { SpinLoading } from 'antd-mobile'
+import { AppLoading } from '../components/AppLoading/AppLoading'
 
 export const CalendarPage = lazy(() => import('../pages/Calendar/CalendarPage').then((module) => ({ default: module.CalendarPage })))
 export const CustomersPage = lazy(() => import('../pages/Customers/CustomersPage').then((module) => ({ default: module.CustomersPage })))
@@ -9,7 +9,5 @@ export const ScheduleEditorPage = lazy(() => import('../pages/ScheduleEditor/Sch
 export const CustomerDetailPage = lazy(() => import('../pages/CustomerDetail/CustomerDetailPage').then((module) => ({ default: module.CustomerDetailPage })))
 
 export const PageLoader = () => (
-  <div className="grid min-h-60 place-items-center">
-    <SpinLoading color="primary" />
-  </div>
+  <AppLoading tone="compact" title="正在打开页面" description="马上就好" />
 )
