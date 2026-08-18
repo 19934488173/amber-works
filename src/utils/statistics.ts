@@ -1,3 +1,4 @@
+import { getScheduleServiceSlots, getScheduleSlotDates, getScheduleTrialSlots } from '../types/schedule'
 import type { Schedule } from '../types/schedule'
 
 export type MonthStats = {
@@ -5,6 +6,11 @@ export type MonthStats = {
   paidAmount: number
   remainingAmount: number
   scheduleCount: number
+  occupiedDays: number
+  availableDays: number
+  trialDays: number
+  followDays: number
+  conflictDays: number
 }
 
 export type PaymentEvent = {
@@ -61,11 +67,64 @@ export const getMonthKey = (date: Date) => {
   return `${year}-${month}`
 }
 
+const getMonthBounds = (date: Date) => {
+  const start = new Date(date.getFullYear(), date.getMonth(), 1)
+  const end = new Date(date.getFullYear(), date.getMonth() + 1, 0)
+  return { start, end }
+}
+
+const toDateKey = (date: Date) => {
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const countAvailableDays = (date: Date, occupiedDateKeys: Set<string>) => {
+  const { start, end } = getMonthBounds(date)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const cursor = new Date(Math.max(start.getTime(), today.getTime()))
+  if (cursor > end) return 0
+
+  let count = 0
+  while (cursor <= end) {
+    if (!occupiedDateKeys.has(toDateKey(cursor))) count += 1
+    cursor.setDate(cursor.getDate() + 1)
+  }
+
+  return count
+}
+
 export const getMonthStats = (schedules: Schedule[], date: Date): MonthStats => {
   const monthKey = getMonthKey(date)
-  const billableSchedules = schedules.filter(
-    (schedule) => schedule.status !== 'cancelled' && schedule.date.startsWith(monthKey),
+  const occupiedDateKeys = new Set<string>()
+  const trialDateKeys = new Set<string>()
+  const followDateKeys = new Set<string>()
+  const occupancyCounts = new Map<string, number>()
+  let scheduleCount = 0
+  const activeSchedules = schedules.filter((schedule) => schedule.status !== 'cancelled')
+  const billableSchedules = activeSchedules.filter((schedule) =>
+    getScheduleSlotDates(schedule).some((slotDate) => slotDate.startsWith(monthKey)),
   )
+  for (const schedule of activeSchedules) {
+    for (const slot of getScheduleTrialSlots(schedule)) {
+      if (!slot.date.startsWith(monthKey)) continue
+      trialDateKeys.add(slot.date)
+      occupiedDateKeys.add(slot.date)
+      occupancyCounts.set(slot.date, (occupancyCounts.get(slot.date) ?? 0) + 1)
+      scheduleCount += 1
+    }
+
+    for (const slot of getScheduleServiceSlots(schedule)) {
+      if (!slot.date.startsWith(monthKey)) continue
+      occupiedDateKeys.add(slot.date)
+      occupancyCounts.set(slot.date, (occupancyCounts.get(slot.date) ?? 0) + 1)
+      if (schedule.serviceCategory === 'bridal') followDateKeys.add(slot.date)
+      scheduleCount += 1
+    }
+  }
   const paymentEvents = schedules
     .filter((schedule) => schedule.status !== 'cancelled')
     .flatMap((schedule) => getPaymentEvents(schedule))
@@ -77,6 +136,11 @@ export const getMonthStats = (schedules: Schedule[], date: Date): MonthStats => 
     monthKey,
     paidAmount,
     remainingAmount,
-    scheduleCount: billableSchedules.length,
+    scheduleCount,
+    occupiedDays: occupiedDateKeys.size,
+    availableDays: countAvailableDays(date, occupiedDateKeys),
+    trialDays: trialDateKeys.size,
+    followDays: followDateKeys.size,
+    conflictDays: Array.from(occupancyCounts.values()).filter((count) => count > 1).length,
   }
 }

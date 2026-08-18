@@ -1,5 +1,6 @@
 import { forwardRef, useMemo } from "react";
 import type { Schedule } from "../../types/schedule";
+import { getScheduleServiceSlots, getScheduleTrialSlots } from "../../types/schedule";
 import {
   formatYearMonth,
   getMonthDays,
@@ -23,7 +24,12 @@ export const CalendarShareCard = forwardRef<HTMLDivElement, Props>(
       const map = new Map<string, number>();
       for (const schedule of schedules) {
         if (schedule.status === "cancelled") continue;
-        map.set(schedule.date, (map.get(schedule.date) ?? 0) + 1);
+        for (const slot of getScheduleServiceSlots(schedule)) {
+          map.set(slot.date, (map.get(slot.date) ?? 0) + 1);
+        }
+        for (const slot of getScheduleTrialSlots(schedule)) {
+          map.set(slot.date, (map.get(slot.date) ?? 0) + 1);
+        }
       }
       return map;
     }, [schedules]);

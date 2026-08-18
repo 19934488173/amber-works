@@ -7,6 +7,7 @@ import type { Schedule } from "../../types/schedule";
 import {
   getJewelryNeedLabel,
   getScheduleBrideStage,
+  getSchedulePrimaryServiceSlot,
   getServiceSubtypeLabel,
   isDailyMakeup,
 } from "../../types/schedule";
@@ -41,6 +42,7 @@ export const ScheduleCard = ({
   const stage = getScheduleBrideStage(schedule);
   const daily = isDailyMakeup(schedule);
   const typeLabel = getServiceSubtypeLabel(schedule.serviceSubtype);
+  const serviceSlot = getSchedulePrimaryServiceSlot(schedule);
   const outfitLabel = daily
     ? typeLabel
     : schedule.outfitCount
@@ -80,8 +82,8 @@ export const ScheduleCard = ({
       >
         <div className="schedule-card__head">
           <div className="schedule-card__date">
-            <strong>{formatFullDate(schedule.date)}</strong>
-            <span>{formatTimeRange(schedule)}</span>
+            <strong>{formatFullDate(serviceSlot?.date ?? schedule.date)}</strong>
+            <span>{formatTimeRange(serviceSlot ?? schedule)}</span>
           </div>
           <div className="schedule-card__badges">
             <Tag color={daily ? "#0f766e" : "#be185d"} round>

@@ -1,6 +1,6 @@
 import { CheckOutline } from 'antd-mobile-icons'
 import type { BrideStage } from '../../types/schedule'
-import { stageDisplay, stageFlow } from '../../app/bridalData'
+import { normalizeStage, stageDisplay, stageFlow } from '../../app/bridalData'
 
 type Props = {
   stage: BrideStage
@@ -8,7 +8,8 @@ type Props = {
 }
 
 export const BrideStagePicker = ({ stage, onChange }: Props) => {
-  const currentIndex = Math.max(stageFlow.indexOf(stage), 0)
+  const normalized = normalizeStage(stage)
+  const currentIndex = Math.max(stageFlow.indexOf(normalized), 0)
 
   return (
     <div className="stage-picker">
@@ -20,7 +21,7 @@ export const BrideStagePicker = ({ stage, onChange }: Props) => {
       <div className="stage-picker__track" role="listbox" aria-label="当前进度">
         {stageFlow.map((item, index) => {
           const reached = index <= currentIndex
-          const active = item === stage
+          const active = item === normalized
           const isLast = index === stageFlow.length - 1
 
           return (
@@ -59,8 +60,8 @@ export const BrideStagePicker = ({ stage, onChange }: Props) => {
       </div>
 
       <div className="stage-picker__summary">
-        <strong>{stageDisplay[stage].label}</strong>
-        <p>{stageDisplay[stage].helper}</p>
+        <strong>{stageDisplay[normalized].label}</strong>
+        <p>{stageDisplay[normalized].helper}</p>
       </div>
     </div>
   )

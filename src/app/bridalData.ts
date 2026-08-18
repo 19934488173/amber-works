@@ -1,15 +1,18 @@
 import type { ImageUploadItem } from 'antd-mobile/es/components/image-uploader'
-import type { BrideStage, PaymentRecord, ReferenceImage, ReferenceImageGroup, Schedule, ScheduleDraft, ScheduleStatus, ServiceCategory, ServiceSubtype } from '../types/schedule'
+import type { BrideStage, PaymentRecord, ReferenceImage, ReferenceImageGroup, Schedule, ScheduleDraft, ScheduleSlot, ScheduleStatus, ServiceCategory, ServiceSubtype } from '../types/schedule'
 import {
   getDefaultServiceSubtype,
   getScheduleBrideStage,
+  getSchedulePrimaryServiceSlot,
+  getScheduleServiceSlots,
+  getScheduleTrialSlots,
   getServiceSubtypeLabel,
   referenceImageGroupOptions,
 } from '../types/schedule'
 import { DAY_MS, getTodayKey, parseDateKey, toDateKey } from '../utils/date'
 import { getMonthKey, getPaymentEvents, getRemainingAmount } from '../utils/statistics'
 
-export const stageFlow: BrideStage[] = ['inquiry', 'first_deposit', 'trial', 'final_payment', 'completed']
+export const stageFlow: BrideStage[] = ['inquiry', 'first_deposit', 'trial', 'completed']
 
 export const stageDisplay: Record<BrideStage, { label: string; shortLabel: string; helper: string }> = {
   inquiry: { label: '咨询中', shortLabel: '咨询', helper: '记录客户意向，确认档期' },
@@ -28,6 +31,7 @@ export type CustomerFormValues = {
   phone?: string
   date?: Date
   trialDate?: Date
+  serviceSlots?: CustomerFormServiceSlot[]
   startTime?: string
   endTime?: string
   trialStartTime?: string
@@ -48,16 +52,24 @@ export type CustomerFormValues = {
   status?: ScheduleStatus | Array<ScheduleStatus>
 }
 
+export type CustomerFormServiceSlot = {
+  id?: string
+  subtype?: ServiceSubtype | Array<ServiceSubtype>
+  date?: Date
+  startTime?: string
+  endTime?: string
+}
+
 export const stageToStatus = (stage: BrideStage): Schedule['status'] => {
   if (stage === 'completed') return 'completed'
   if (stage === 'cancelled') return 'cancelled'
-  if (stage === 'first_deposit' || stage === 'trial') return 'confirmed'
-  if (stage === 'second_deposit' || stage === 'final_payment') return 'in_progress'
+  if (stage === 'first_deposit') return 'confirmed'
+  if (stage === 'trial' || stage === 'second_deposit' || stage === 'final_payment') return 'in_progress'
   return 'pending'
 }
 
 export const normalizeStage = (stage?: BrideStage): BrideStage => {
-  if (stage === 'second_deposit') return 'trial'
+  if (stage === 'second_deposit' || stage === 'final_payment') return 'trial'
   return stage ?? 'first_deposit'
 }
 
@@ -164,18 +176,28 @@ export const formValuesFromSchedule = (schedule: Schedule): CustomerFormValues =
   const firstPayment = schedule.paymentRecords.find((record) => record.kind === 'first_deposit')
   const trialPayment = schedule.paymentRecords.find((record) => record.kind === 'trial_deposit')
   const finalPayment = schedule.paymentRecords.find((record) => record.kind === 'final_payment')
+  const trialSlot = getScheduleTrialSlots(schedule)[0]
+  const serviceSlots = getScheduleServiceSlots(schedule)
+  const primaryServiceSlot = getSchedulePrimaryServiceSlot(schedule)
 
   return {
     serviceCategory: schedule.serviceCategory,
     serviceSubtype: schedule.serviceSubtype,
     customer: schedule.customer,
     phone: schedule.phone,
-    date: parseDateKey(schedule.date),
-    trialDate: schedule.trialDate ? parseDateKey(schedule.trialDate) : undefined,
-    startTime: schedule.startTime,
-    endTime: schedule.endTime,
-    trialStartTime: schedule.trialStartTime,
-    trialEndTime: schedule.trialEndTime,
+    date: primaryServiceSlot?.date ? parseDateKey(primaryServiceSlot.date) : parseDateKey(schedule.date),
+    trialDate: trialSlot?.date ? parseDateKey(trialSlot.date) : undefined,
+    serviceSlots: serviceSlots.map((slot) => ({
+      id: slot.id,
+      subtype: slot.subtype ?? schedule.serviceSubtype,
+      date: parseDateKey(slot.date),
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+    })),
+    startTime: primaryServiceSlot?.startTime ?? schedule.startTime,
+    endTime: primaryServiceSlot?.endTime ?? schedule.endTime,
+    trialStartTime: trialSlot?.startTime,
+    trialEndTime: trialSlot?.endTime,
     location: schedule.location,
     amount: schedule.amount ? String(schedule.amount) : undefined,
     firstDepositAmount: firstPayment?.amount ? String(firstPayment.amount) : undefined,
@@ -207,6 +229,9 @@ export const getJewelryNeedValue = (jewelryNeed?: CustomerFormValues['jewelryNee
 
 const getScheduleStatusValue = (status?: CustomerFormValues['status']) =>
   Array.isArray(status) ? status[0] : status
+
+const getFormSlotSubtypeValue = (subtype?: CustomerFormServiceSlot['subtype']) =>
+  Array.isArray(subtype) ? subtype[0] : subtype
 
 const paymentLabels = {
   bridal: {
@@ -290,8 +315,6 @@ const paymentRecordsFromForm = (
 
 export const draftFromForm = (values: CustomerFormValues, existing?: Schedule): ScheduleDraft => {
   const outfitCount = Number(values.outfitCount)
-  const date = values.date ? toDateKey(values.date) : existing?.date ?? getTodayKey()
-  const trialDate = values.trialDate ? toDateKey(values.trialDate) : existing?.trialDate
   const jewelryNeedValue = getJewelryNeedValue(values.jewelryNeed)
   const jewelryNeed = jewelryNeedValue === 'none' ? 'none' : 'borrow'
   const category = getServiceCategoryValue(values.serviceCategory) ?? 'bridal'
@@ -299,6 +322,53 @@ export const draftFromForm = (values: CustomerFormValues, existing?: Schedule): 
   const isDaily = category === 'daily'
   const paymentRecords = paymentRecordsFromForm(values, existing, category)
   const hasPayment = paymentRecords.length > 0
+  const existingTrialSlot = existing?.serviceSlots?.find((slot) => slot.kind === 'trial')
+  const existingServiceSlot = existing?.serviceSlots?.find((slot) => slot.kind === 'service')
+  const trialSlot: ScheduleSlot | undefined = !isDaily && values.trialDate
+    ? {
+      id: existingTrialSlot?.id ?? 'trial',
+      kind: 'trial',
+      date: toDateKey(values.trialDate),
+      startTime: values.trialStartTime?.trim() || existing?.trialStartTime || '10:00',
+      endTime: values.trialEndTime?.trim() || existing?.trialEndTime || '18:00',
+    }
+    : undefined
+  const fallbackServiceSlots: CustomerFormServiceSlot[] = [{
+    id: existingServiceSlot?.id ?? 'service',
+    subtype,
+    date: values.date,
+    startTime: values.startTime,
+    endTime: values.endTime,
+  }]
+  const formServiceSlots = isDaily
+    ? [{
+      id: existingServiceSlot?.id ?? 'service',
+      subtype,
+      date: values.date ?? (existing?.date ? parseDateKey(existing.date) : undefined),
+      startTime: values.startTime,
+      endTime: values.endTime,
+    }]
+    : values.serviceSlots?.length
+      ? values.serviceSlots
+      : fallbackServiceSlots
+  const serviceSlots: ScheduleSlot[] = formServiceSlots
+    .map((slot): ScheduleSlot | undefined => {
+      const date = slot.date ? toDateKey(slot.date) : undefined
+      if (!date) return undefined
+
+      return {
+        id: slot.id ?? crypto.randomUUID(),
+        kind: 'service',
+        subtype: getFormSlotSubtypeValue(slot.subtype) ?? subtype,
+        date,
+        startTime: slot.startTime?.trim() || (isDaily ? existing?.startTime : '06:00'),
+        endTime: slot.endTime?.trim() || (isDaily ? existing?.endTime : undefined),
+      }
+    })
+    .filter((slot): slot is ScheduleSlot => Boolean(slot))
+  const primaryServiceSlot = serviceSlots[0]
+  const date = primaryServiceSlot?.date ?? existing?.date ?? getTodayKey()
+  const trialDate = trialSlot?.date
   const formStage = getBrideStageValue(values.brideStage)
   const stage = isDaily
     ? undefined
@@ -315,16 +385,17 @@ export const draftFromForm = (values: CustomerFormValues, existing?: Schedule): 
     serviceCategory: category,
     serviceSubtype: subtype,
     date,
-    startTime: values.startTime?.trim() || existing?.startTime || (isDaily ? undefined : '06:00'),
-    endTime: values.endTime?.trim() || existing?.endTime,
+    startTime: primaryServiceSlot?.startTime,
+    endTime: primaryServiceSlot?.endTime,
     status: isDaily ? (getScheduleStatusValue(values.status) ?? existing?.status ?? 'confirmed') : stageToStatus(stage ?? 'inquiry'),
     customer: values.customer?.trim() || existing?.customer || '新客户',
     phone: values.phone?.trim() || undefined,
     location: values.location?.trim() || undefined,
     amount: getPositiveAmount(values.amount),
     trialDate: isDaily ? undefined : trialDate,
-    trialStartTime: isDaily ? undefined : values.trialStartTime?.trim() || existing?.trialStartTime,
-    trialEndTime: isDaily ? undefined : values.trialEndTime?.trim() || existing?.trialEndTime,
+    trialStartTime: isDaily ? undefined : trialSlot?.startTime,
+    trialEndTime: isDaily ? undefined : trialSlot?.endTime,
+    serviceSlots: [trialSlot, ...serviceSlots].filter((slot): slot is ScheduleSlot => Boolean(slot)),
     brideStage: stage,
     outfitCount: !isDaily && Number.isFinite(outfitCount) && outfitCount > 0 ? Math.floor(outfitCount) : undefined,
     jewelryNeed: isDaily ? undefined : jewelryNeed,

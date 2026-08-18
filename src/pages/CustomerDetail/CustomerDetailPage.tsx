@@ -20,6 +20,7 @@ import {
   DeleteOutline,
   EditSOutline,
   EnvironmentOutline,
+  ClockCircleOutline,
   MinusCircleOutline,
   PayCircleOutline,
   PhonebookOutline,
@@ -63,6 +64,10 @@ import {
   getPaymentKindLabel,
   getPaymentKindOptions,
   getScheduleBrideStage,
+  getSchedulePrimaryServiceSlot,
+  getScheduleServiceSlots,
+  getScheduleSlotLabel,
+  getScheduleTrialSlots,
   getServiceCategoryLabel,
   getServiceSubtypeLabel,
   getStatusLabel,
@@ -124,6 +129,7 @@ const buildDraft = (
   note: schedule.note,
   referenceImages: schedule.referenceImages,
   paymentRecords: schedule.paymentRecords,
+  serviceSlots: schedule.serviceSlots,
   ...overrides,
 });
 
@@ -349,6 +355,9 @@ export const CustomerDetailPage = () => {
   const serviceDayTitle = daily
     ? "预约时间"
     : getBridalServiceSlotTitle(schedule.serviceSubtype as BridalSubtype);
+  const trialSlots = getScheduleTrialSlots(schedule);
+  const serviceSlots = getScheduleServiceSlots(schedule);
+  const primaryServiceSlot = getSchedulePrimaryServiceSlot(schedule);
   const totalAmount = getBillableAmount(schedule);
   const paidAmount = getPaidAmount(schedule);
   const remainingAmount = getRemainingAmount(schedule);
@@ -505,9 +514,35 @@ export const CustomerDetailPage = () => {
       <div className="customer-detail">
         <section className="customer-detail__hero">
           <div className="customer-detail__hero-top">
-            <div className="customer-detail__hero-heading">
-              <span className="customer-detail__eyebrow">CUSTOMER PROFILE</span>
-              <span className="customer-detail__hero-caption">客户档案</span>
+            <div className="customer-detail__identity">
+              <div className="customer-detail__avatar">
+                {getInitial(schedule)}
+              </div>
+              <div className="min-w-0">
+                <div className="customer-detail__name-row">
+                  <h1 className="customer-detail__name">
+                    {getCustomerName(schedule)}
+                  </h1>
+                  <span
+                    className={`customer-detail__status-pill${
+                      daily ? " is-daily" : ""
+                    }`}
+                  >
+                    {daily
+                      ? getStatusLabel(schedule.status)
+                      : stageDisplay[stage].label}
+                  </span>
+                </div>
+                <p className="customer-detail__service">
+                  {categoryLabel} · {subtypeLabel}
+                </p>
+                {schedule.phone ? (
+                  <p className="customer-detail__phone">
+                    <PhonebookOutline fontSize={14} />
+                    {schedule.phone}
+                  </p>
+                ) : null}
+              </div>
             </div>
             <button
               type="button"
@@ -516,61 +551,55 @@ export const CustomerDetailPage = () => {
               aria-label="编辑客户资料"
             >
               <EditSOutline fontSize={15} />
-              编辑
             </button>
           </div>
-          <div className="customer-detail__identity">
-            <div className="customer-detail__avatar">
-              {getInitial(schedule)}
-            </div>
-            <div className="min-w-0">
-              <div className="customer-detail__name-row">
-                <h1 className="customer-detail__name">
-                  {getCustomerName(schedule)}
-                </h1>
-                <span
-                  className={`customer-detail__status-pill${
-                    daily ? " is-daily" : ""
-                  }`}
-                >
-                  {daily
-                    ? getStatusLabel(schedule.status)
-                    : stageDisplay[stage].label}
-                </span>
-              </div>
-              <p className="customer-detail__service">
-                {categoryLabel} · {subtypeLabel}
-              </p>
-              {schedule.phone ? (
-                <p className="customer-detail__phone">
-                  <PhonebookOutline fontSize={14} />
-                  {schedule.phone}
-                </p>
-              ) : null}
-            </div>
-          </div>
+
           <div className="customer-detail__hero-summary">
-            <div>
-              <span>服务日期</span>
-              <strong>{formatCompactDate(schedule.date)}</strong>
+            <div className="customer-detail__summary-item">
+              <span className="customer-detail__summary-label">
+                <CalendarOutline fontSize={14} />
+                {daily ? "预约时间" : "服务日期"}
+              </span>
+              <strong className="customer-detail__summary-value">
+                {daily
+                  ? formatCompactDate(schedule.date)
+                  : formatCompactDate(primaryServiceSlot?.date ?? schedule.date)}
+              </strong>
             </div>
-            <div>
-              <span>{daily ? "预约状态" : "档期金额"}</span>
-              <strong>
+            <div className="customer-detail__summary-item">
+              <span className="customer-detail__summary-label">
+                <PayCircleOutline fontSize={14} />
+                {daily ? "预约状态" : "档期金额"}
+              </span>
+              <strong className="customer-detail__summary-value">
                 {daily
                   ? getStatusLabel(schedule.status)
                   : formatCurrency(totalAmount)}
               </strong>
             </div>
-            <div>
-              <span>{daily ? "待收款" : "当前阶段"}</span>
-              <strong>
+            <div className="customer-detail__summary-item">
+              <span className="customer-detail__summary-label">
+                <ClockCircleOutline fontSize={14} />
+                {daily ? "待收款" : "当前阶段"}
+              </span>
+              <strong className="customer-detail__summary-value">
                 {daily
                   ? formatCurrency(remainingAmount)
                   : stageDisplay[stage].shortLabel}
               </strong>
             </div>
           </div>
+
+          {!daily && serviceSlots.length > 1 ? (
+            <div className="customer-detail__date-list" aria-label="多场跟妆日期">
+              {serviceSlots.map((slot, index) => (
+                <span key={slot.id} className="customer-detail__date-chip">
+                  <em>第{index + 1}场</em>
+                  <strong>{formatCompactDate(slot.date)}</strong>
+                </span>
+              ))}
+            </div>
+          ) : null}
         </section>
 
         {!daily && (
@@ -670,9 +699,24 @@ export const CustomerDetailPage = () => {
               </span>
               <h2 className="customer-detail__subsection-title">服务安排</h2>
             </div>
-            <span>
-              {daily ? getStatusLabel(schedule.status) : serviceDayTitle}
-            </span>
+            {daily ? (
+              <span>
+                {getStatusLabel(schedule.status)}
+              </span>
+            ) : (
+              <div className="customer-detail__panel-summary">
+                <span className="customer-detail__panel-summary-item">
+                  <CalendarOutline fontSize={12} />
+                  <strong>试妆</strong>
+                  <em>{trialSlots.length}</em>
+                </span>
+                <span className="customer-detail__panel-summary-item is-follow">
+                  <CalendarOutline fontSize={12} />
+                  <strong>跟妆</strong>
+                  <em>{serviceSlots.length}</em>
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="customer-detail__tile-grid">
@@ -696,26 +740,40 @@ export const CustomerDetailPage = () => {
                 <DetailTile
                   icon={<CalendarOutline />}
                   label="试妆预约"
-                  value={
-                    schedule.trialDate
-                      ? formatCompactDate(schedule.trialDate)
-                      : "未约定"
-                  }
-                  helper={
-                    schedule.trialDate
-                      ? formatTimeRange({
-                          startTime: schedule.trialStartTime,
-                          endTime: schedule.trialEndTime,
-                        })
-                      : "待安排"
-                  }
+                  value={trialSlots.length ? formatCompactDate(trialSlots[0].date) : "未约定"}
+                  helper={trialSlots.length ? formatTimeRange(trialSlots[0]) : "待安排"}
                 />
                 <DetailTile
                   icon={<CalendarOutline />}
                   label={serviceDayTitle}
-                  value={formatCompactDate(schedule.date)}
-                  helper={formatTimeRange(schedule)}
+                  value={formatCompactDate(primaryServiceSlot?.date ?? schedule.date)}
+                  helper={formatTimeRange(primaryServiceSlot ?? schedule)}
                 />
+                {serviceSlots.length > 1 ? (
+                  <div className="customer-detail__slot-list">
+                    {serviceSlots.slice(1).map((slot, index) => (
+                      <div key={slot.id} className="customer-detail__slot-item is-follow">
+                        <div className="customer-detail__slot-item-head">
+                          <span className="customer-detail__slot-item-icon">
+                            <CalendarOutline fontSize={13} />
+                          </span>
+                          <div className="customer-detail__slot-item-title">
+                            <span>{getScheduleSlotLabel(slot, schedule.serviceSubtype)}</span>
+                            <strong>{formatCompactDate(slot.date)}</strong>
+                          </div>
+                        </div>
+                        <div className="customer-detail__slot-item-meta">
+                          <ClockCircleOutline fontSize={12} />
+                          <em>{formatTimeRange(slot)}</em>
+                        </div>
+                        <div className="customer-detail__slot-item-tags">
+                          <span>第{index + 2}场</span>
+                          <span>多日期</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 <DetailTile
                   icon={<ShopbagOutline />}
                   label="服装套数"

@@ -151,9 +151,7 @@ export const IncomePage = () => {
     <div className="income-page">
       <section className="income-page__hero">
         <div className="income-page__hero-copy">
-          <span className="income-page__eyebrow">月度账目</span>
           <h1 className="income-page__title">收入账目</h1>
-          <p className="income-page__subtitle">按月份查看流水，年度只保留总览。</p>
         </div>
         <button
           type="button"
@@ -192,47 +190,43 @@ export const IncomePage = () => {
             回到本月
           </button>
         ) : null}
-      </section>
 
-      <section className="income-page__stats">
-        <article className="income-page__stat is-received">
-          <div className="income-page__stat-icon">
-            <ReceivePaymentOutline fontSize={16} />
-          </div>
-          <p className="income-page__stat-label">本月实收</p>
-          <strong className="income-page__stat-value">
-            {formatCurrency(monthSummary.received)}
-          </strong>
-          <span className="income-page__stat-meta">{monthSummary.paymentCount} 笔流水</span>
-        </article>
-        <article className="income-page__stat is-pending">
-          <div className="income-page__stat-icon">
-            <BillOutline fontSize={16} />
-          </div>
-          <p className="income-page__stat-label">本月待收</p>
-          <strong className="income-page__stat-value">
-            {formatCurrency(monthSummary.pendingAmount)}
-          </strong>
-          <span className="income-page__stat-meta">{monthSummary.pendingCount} 位客户</span>
-        </article>
+        <div className="income-page__stats">
+          <article className="income-page__stat is-received">
+            <div className="income-page__stat-icon">
+              <ReceivePaymentOutline fontSize={16} />
+            </div>
+            <p className="income-page__stat-label">当月实收</p>
+            <strong className="income-page__stat-value">
+              {formatCurrency(monthSummary.received)}
+            </strong>
+            <span className="income-page__stat-meta">{monthSummary.paymentCount} 笔流水</span>
+          </article>
+          <article className="income-page__stat is-pending">
+            <div className="income-page__stat-icon">
+              <BillOutline fontSize={16} />
+            </div>
+            <p className="income-page__stat-label">当月待收</p>
+            <strong className="income-page__stat-value">
+              {formatCurrency(monthSummary.pendingAmount)}
+            </strong>
+            <span className="income-page__stat-meta">{monthSummary.pendingCount} 位客户</span>
+          </article>
+        </div>
       </section>
 
       <section className="income-page__year-strip">
-        <div>
+        <div className="income-page__year-head">
           <span>{yearSummary.year} 年总览</span>
           <strong>{formatCurrency(yearSummary.received)}</strong>
         </div>
-        <dl>
+        <dl className="income-page__year-metrics">
           <div>
-            <dt>实收</dt>
-            <dd>{formatCurrency(yearSummary.received)}</dd>
-          </div>
-          <div>
-            <dt>待收</dt>
+            <dt>年待收</dt>
             <dd>{formatCurrency(yearSummary.pendingAmount)}</dd>
           </div>
           <div>
-            <dt>流水</dt>
+            <dt>流水笔数</dt>
             <dd>{yearSummary.paymentCount} 笔</dd>
           </div>
         </dl>
@@ -240,15 +234,7 @@ export const IncomePage = () => {
 
       <section className="income-page__section">
         <header className="income-page__section-head">
-          <div>
-            <h2 className="income-page__section-title">{formatYearMonth(selectedMonth)}流水</h2>
-            <p className="income-page__card-hint">
-              实收 {formatCurrency(monthSummary.received)} · {monthSummary.paymentCount} 笔流水
-            </p>
-          </div>
-          {monthSummary.payments.length > 0 ? (
-            <span className="income-page__section-count">{monthSummary.payments.length} 笔</span>
-          ) : null}
+          <h2 className="income-page__section-title">{formatYearMonth(selectedMonth)}流水</h2>
         </header>
         {monthSummary.payments.length > 0 ? (
           <div className="income-page__payments">

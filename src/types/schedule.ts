@@ -6,6 +6,17 @@ export type DailySubtype = 'on_camera' | 'western' | 'coaching'
 
 export type ServiceSubtype = BridalSubtype | DailySubtype
 
+export type ScheduleSlotKind = 'trial' | 'service'
+
+export type ScheduleSlot = {
+  id: string
+  kind: ScheduleSlotKind
+  subtype?: ServiceSubtype
+  date: string
+  startTime?: string
+  endTime?: string
+}
+
 export type ScheduleStatus =
   | 'pending'
   | 'confirmed'
@@ -56,6 +67,7 @@ export type Schedule = {
   trialDate?: string
   trialStartTime?: string
   trialEndTime?: string
+  serviceSlots?: ScheduleSlot[]
   status: ScheduleStatus
   customer?: string
   phone?: string
@@ -201,6 +213,67 @@ export const getBridalServiceSlotTitle = (subtype: BridalSubtype) =>
 
 export const getServiceCategoryLabel = (category: ServiceCategory) =>
   serviceCategoryOptions.find((option) => option.value === category)?.label ?? category
+
+const sortScheduleSlots = (slots: ScheduleSlot[]) =>
+  [...slots].sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date)
+    if (a.kind !== b.kind) return a.kind === 'trial' ? -1 : 1
+    const aTime = a.startTime ?? '99:99'
+    const bTime = b.startTime ?? '99:99'
+    return aTime.localeCompare(bTime)
+  })
+
+const legacySlotsFromSchedule = (schedule: Pick<Schedule, 'date' | 'startTime' | 'endTime' | 'trialDate' | 'trialStartTime' | 'trialEndTime' | 'serviceSubtype'>): ScheduleSlot[] => {
+  const slots: ScheduleSlot[] = []
+  if (schedule.trialDate) {
+    slots.push({
+      id: 'trial',
+      kind: 'trial',
+      date: schedule.trialDate,
+      startTime: schedule.trialStartTime,
+      endTime: schedule.trialEndTime,
+    })
+  }
+  if (schedule.date) {
+    slots.push({
+      id: 'service',
+      kind: 'service',
+      subtype: schedule.serviceSubtype,
+      date: schedule.date,
+      startTime: schedule.startTime,
+      endTime: schedule.endTime,
+    })
+  }
+  return slots
+}
+
+export const getScheduleSlots = (schedule: Pick<Schedule, 'serviceSlots' | 'date' | 'startTime' | 'endTime' | 'trialDate' | 'trialStartTime' | 'trialEndTime' | 'serviceSubtype'>) => {
+  const next = schedule.serviceSlots?.length ? schedule.serviceSlots : legacySlotsFromSchedule(schedule)
+  return sortScheduleSlots(next.filter((slot) => Boolean(slot.date)))
+}
+
+export const getScheduleTrialSlots = (schedule: Pick<Schedule, 'serviceSlots' | 'date' | 'startTime' | 'endTime' | 'trialDate' | 'trialStartTime' | 'trialEndTime' | 'serviceSubtype'>) =>
+  getScheduleSlots(schedule).filter((slot) => slot.kind === 'trial')
+
+export const getScheduleServiceSlots = (schedule: Pick<Schedule, 'serviceSlots' | 'date' | 'startTime' | 'endTime' | 'trialDate' | 'trialStartTime' | 'trialEndTime' | 'serviceSubtype'>) =>
+  getScheduleSlots(schedule).filter((slot) => slot.kind === 'service')
+
+export const getSchedulePrimaryServiceSlot = (schedule: Pick<Schedule, 'serviceSlots' | 'date' | 'startTime' | 'endTime' | 'trialDate' | 'trialStartTime' | 'trialEndTime' | 'serviceSubtype'>) =>
+  getScheduleServiceSlots(schedule)[0] ?? getScheduleSlots(schedule)[0]
+
+export const getScheduleSlotDates = (schedule: Pick<Schedule, 'serviceSlots' | 'date' | 'startTime' | 'endTime' | 'trialDate' | 'trialStartTime' | 'trialEndTime' | 'serviceSubtype'>) => {
+  const seen = new Set<string>()
+  const dates: string[] = []
+  for (const slot of getScheduleSlots(schedule)) {
+    if (seen.has(slot.date)) continue
+    seen.add(slot.date)
+    dates.push(slot.date)
+  }
+  return dates
+}
+
+export const getScheduleSlotLabel = (slot: ScheduleSlot, fallbackSubtype?: ServiceSubtype) =>
+  slot.kind === 'trial' ? '试妆' : getServiceSubtypeLabel(slot.subtype ?? fallbackSubtype ?? 'early_makeup')
 
 export const getPaymentKindOptions = (category: ServiceCategory): Array<{
   value: PaymentRecordKind

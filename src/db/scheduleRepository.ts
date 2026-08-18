@@ -25,6 +25,7 @@ import {
   serviceCategoryOptions,
 } from '../types/schedule'
 import { sortSchedules } from '../utils/date'
+import { getScheduleServiceSlots, getScheduleTrialSlots } from '../types/schedule'
 
 const createId = () => crypto.randomUUID()
 const dateKeyPattern = /^\d{4}-\d{2}-\d{2}$/
@@ -90,6 +91,36 @@ const normalizePaymentRecords = (records: unknown, createdAt: string): PaymentRe
     ) as PaymentRecord[]
 }
 
+type NormalizedServiceSlot = {
+  id: string
+  kind: 'trial' | 'service'
+  subtype?: ServiceSubtype
+  date: string
+  startTime?: string
+  endTime?: string
+}
+
+const normalizeServiceSlots = (slots: unknown): NormalizedServiceSlot[] | undefined => {
+  if (!Array.isArray(slots)) return undefined
+
+  const next: NormalizedServiceSlot[] = []
+  for (const slot of slots) {
+    if (!isPlainObject(slot)) continue
+    const date = asDateKey(slot.date)
+    if (!date) continue
+    next.push({
+      id: asString(slot.id) ?? createId(),
+      kind: asOneOf(slot.kind, ['trial', 'service'] as const) ?? 'service',
+      subtype: asOneOf(slot.subtype, serviceSubtypes),
+      date,
+      startTime: asString(slot.startTime),
+      endTime: asString(slot.endTime),
+    })
+  }
+
+  return next.length ? next : undefined
+}
+
 const normalizeSchedule = (value: unknown): Schedule => {
   if (!isPlainObject(value)) throw new Error('备份文件包含无效档期')
 
@@ -120,6 +151,7 @@ const normalizeSchedule = (value: unknown): Schedule => {
     trialDate: asDateKey(value.trialDate),
     trialStartTime: asString(value.trialStartTime),
     trialEndTime: asString(value.trialEndTime),
+    serviceSlots: normalizeServiceSlots((value as Record<string, unknown>).serviceSlots),
     brideStage: asOneOf<BrideStage>(value.brideStage, brideStages),
     outfitCount: asPositiveNumber(value.outfitCount),
     jewelryNeed: asOneOf<JewelryNeed>(value.jewelryNeed, jewelryNeeds),
@@ -194,6 +226,8 @@ export const localScheduleRepository = {
   },
 
   async duplicate(source: Schedule, date: string) {
+    const trialSlots = getScheduleTrialSlots(source)
+    const serviceSlots = getScheduleServiceSlots(source)
     return this.create({
       title: source.title,
       serviceCategory: source.serviceCategory,
@@ -209,6 +243,10 @@ export const localScheduleRepository = {
       trialDate: source.trialDate,
       trialStartTime: source.trialStartTime,
       trialEndTime: source.trialEndTime,
+      serviceSlots: [
+        ...trialSlots.map((slot) => ({ ...slot })),
+        ...serviceSlots.map((slot, index) => ({ ...slot, date: index === 0 ? date : slot.date })),
+      ],
       brideStage: 'inquiry',
       outfitCount: source.outfitCount,
       jewelryNeed: source.jewelryNeed,
@@ -459,6 +497,8 @@ const createCloudRepository = (userId: string): Repository => ({
   },
 
   async duplicate(source: Schedule, date: string) {
+    const trialSlots = getScheduleTrialSlots(source)
+    const serviceSlots = getScheduleServiceSlots(source)
     return this.create({
       title: source.title,
       serviceCategory: source.serviceCategory,
@@ -474,6 +514,10 @@ const createCloudRepository = (userId: string): Repository => ({
       trialDate: source.trialDate,
       trialStartTime: source.trialStartTime,
       trialEndTime: source.trialEndTime,
+      serviceSlots: [
+        ...trialSlots.map((slot) => ({ ...slot })),
+        ...serviceSlots.map((slot, index) => ({ ...slot, date: index === 0 ? date : slot.date })),
+      ],
       brideStage: 'inquiry',
       outfitCount: source.outfitCount,
       jewelryNeed: source.jewelryNeed,

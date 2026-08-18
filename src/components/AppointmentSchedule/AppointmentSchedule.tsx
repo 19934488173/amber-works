@@ -1,23 +1,33 @@
-import type { BridalSubtype } from '../../types/schedule'
-import { getBridalServiceSlotTitle } from '../../types/schedule'
-import { formatAppointmentDate, formatAppointmentTime } from '../../utils/date'
+import type { ReactNode } from "react";
+import { AddCircleOutline, DeleteOutline } from "antd-mobile-icons";
+import type { BridalSubtype } from "../../types/schedule";
+import {
+  bridalSubtypeOptions,
+  getBridalServiceSlotTitle,
+  getServiceSubtypeLabel,
+} from "../../types/schedule";
+import { formatAppointmentDate, formatAppointmentTime } from "../../utils/date";
 
 export type AppointmentSlot = {
-  date?: Date
-  startTime?: string
-  endTime?: string
-}
+  id?: string;
+  subtype?: BridalSubtype;
+  date?: Date;
+  startTime?: string;
+  endTime?: string;
+};
 
 type SlotProps = {
-  step: string
-  title: string
-  hint: string
-  slot: AppointmentSlot
-  required?: boolean
-  onPickDate: () => void
-  onPickStartTime: () => void
-  onPickEndTime: () => void
-}
+  step: string;
+  title: string;
+  hint: string;
+  slot: AppointmentSlot;
+  required?: boolean;
+  action?: ReactNode;
+  children?: ReactNode;
+  onPickDate: () => void;
+  onPickStartTime: () => void;
+  onPickEndTime: () => void;
+};
 
 const AppointmentSlotCard = ({
   step,
@@ -25,6 +35,8 @@ const AppointmentSlotCard = ({
   hint,
   slot,
   required = false,
+  action,
+  children,
   onPickDate,
   onPickStartTime,
   onPickEndTime,
@@ -39,84 +51,146 @@ const AppointmentSlotCard = ({
         </strong>
         <span>{hint}</span>
       </div>
+      {action ? <div className="appointment-slot__action">{action}</div> : null}
     </div>
 
-    <button type="button" className="appointment-slot__date" onClick={onPickDate}>
+    {children}
+
+    <button
+      type="button"
+      className="appointment-slot__date"
+      onClick={onPickDate}
+    >
       <span>{formatAppointmentDate(slot.date)}</span>
     </button>
 
     <div className="appointment-slot__times">
-      <button type="button" className="appointment-slot__time" onClick={onPickStartTime}>
+      <button
+        type="button"
+        className="appointment-slot__time"
+        onClick={onPickStartTime}
+      >
         <small>开始</small>
         <strong>{formatAppointmentTime(slot.startTime)}</strong>
       </button>
       <span className="appointment-slot__dash" aria-hidden="true" />
-      <button type="button" className="appointment-slot__time" onClick={onPickEndTime}>
+      <button
+        type="button"
+        className="appointment-slot__time"
+        onClick={onPickEndTime}
+      >
         <small>结束</small>
         <strong>{formatAppointmentTime(slot.endTime)}</strong>
       </button>
     </div>
   </div>
-)
+);
+
+type BridalServiceSlot = AppointmentSlot & {
+  id: string;
+  subtype: BridalSubtype;
+};
 
 type BridalProps = {
-  subtype: BridalSubtype
-  trial: AppointmentSlot
-  service: AppointmentSlot
-  onPickTrialDate: () => void
-  onPickServiceDate: () => void
-  onPickTrialStartTime: () => void
-  onPickTrialEndTime: () => void
-  onPickServiceStartTime: () => void
-  onPickServiceEndTime: () => void
-}
+  subtype: BridalSubtype;
+  trial: AppointmentSlot;
+  services: BridalServiceSlot[];
+  onPickTrialDate: () => void;
+  onPickServiceDate: (id: string) => void;
+  onPickTrialStartTime: () => void;
+  onPickTrialEndTime: () => void;
+  onPickServiceStartTime: (id: string) => void;
+  onPickServiceEndTime: (id: string) => void;
+  onChangeServiceSubtype: (id: string, subtype: BridalSubtype) => void;
+  onAddService: () => void;
+  onRemoveService: (id: string) => void;
+};
 
 export const BridalAppointmentSchedule = ({
   subtype,
   trial,
-  service,
+  services,
   onPickTrialDate,
   onPickServiceDate,
   onPickTrialStartTime,
   onPickTrialEndTime,
   onPickServiceStartTime,
   onPickServiceEndTime,
+  onChangeServiceSubtype,
+  onAddService,
+  onRemoveService,
 }: BridalProps) => (
   <div className="appointment-schedule">
     <div className="appointment-schedule__intro">
       <strong>档期安排</strong>
-      <span>先试妆确认效果，再锁定跟妆当天</span>
     </div>
 
     <AppointmentSlotCard
       step="1"
       title="试妆预约"
-      hint="沟通妆容风格，确认是否满意"
+      hint="通常按 10:00 - 18:00 预留整天"
       slot={trial}
       onPickDate={onPickTrialDate}
       onPickStartTime={onPickTrialStartTime}
       onPickEndTime={onPickTrialEndTime}
     />
 
-    <AppointmentSlotCard
-      step="2"
-      title={getBridalServiceSlotTitle(subtype)}
-      hint="试妆满意并复定后，确认当天跟妆"
-      slot={service}
-      required
-      onPickDate={onPickServiceDate}
-      onPickStartTime={onPickServiceStartTime}
-      onPickEndTime={onPickServiceEndTime}
-    />
+    {services.map((service, index) => (
+      <AppointmentSlotCard
+        key={service.id}
+        step={`${index + 2}`}
+        title={getServiceSubtypeLabel(service.subtype ?? subtype)}
+        hint={getBridalServiceSlotTitle(service.subtype ?? subtype)}
+        slot={service}
+        required={index === 0}
+        action={
+          services.length > 1 ? (
+            <button
+              type="button"
+              className="appointment-slot__delete"
+              onClick={() => onRemoveService(service.id)}
+              aria-label="删除这场跟妆"
+            >
+              <DeleteOutline fontSize={15} />
+            </button>
+          ) : null
+        }
+        onPickDate={() => onPickServiceDate(service.id)}
+        onPickStartTime={() => onPickServiceStartTime(service.id)}
+        onPickEndTime={() => onPickServiceEndTime(service.id)}
+      >
+        <div className="appointment-slot__subtypes my-2" aria-label="跟妆类型">
+          {bridalSubtypeOptions.map((option) => {
+            const active = (service.subtype ?? subtype) === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                className={active ? "is-active" : ""}
+                onClick={() => onChangeServiceSubtype(service.id, option.value)}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      </AppointmentSlotCard>
+    ))}
+    <div className="appointment-schedule__service-head">
+      <button type="button" onClick={onAddService} aria-label="新增跟妆档期">
+        <AddCircleOutline fontSize={16} />
+        新增
+      </button>
+    </div>
   </div>
-)
+);
 
 type DailyProps = {
-  slot: AppointmentSlot
-  onPickDate: () => void
-  onPickStartTime: () => void
-  onPickEndTime: () => void
-}
+  slot: AppointmentSlot;
+  onPickDate: () => void;
+  onPickStartTime: () => void;
+  onPickEndTime: () => void;
+};
 
 export const DailyAppointmentSchedule = ({
   slot,
@@ -141,4 +215,4 @@ export const DailyAppointmentSchedule = ({
       onPickEndTime={onPickEndTime}
     />
   </div>
-)
+);

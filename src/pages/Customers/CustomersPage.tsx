@@ -3,7 +3,6 @@ import { Button, Empty } from "antd-mobile";
 import {
   CalendarOutline,
   ClockCircleOutline,
-  EnvironmentOutline,
   RightOutline,
   ShopbagOutline,
   StarOutline,
@@ -22,14 +21,16 @@ import type {
   BrideStage,
   BridalSubtype,
   Schedule,
-  ScheduleStatus,
 } from "../../types/schedule";
 import {
   getBridalServiceSlotTitle,
   getJewelryNeedLabel,
   getScheduleBrideStage,
+  getSchedulePrimaryServiceSlot,
+  getScheduleServiceSlots,
+  getScheduleSlotLabel,
+  getScheduleTrialSlots,
   getServiceSubtypeLabel,
-  getStatusLabel,
   isDailyMakeup,
 } from "../../types/schedule";
 import { formatTimeRange, sortSchedules } from "../../utils/date";
@@ -43,33 +44,24 @@ const bridalFilters: Array<{ key: "all" | BrideStage; label: string }> = [
   { key: "all", label: "全部" },
   { key: "first_deposit", label: "已预约" },
   { key: "trial", label: "已试妆" },
-  { key: "final_payment", label: "待跟妆" },
   { key: "completed", label: "已完成" },
 ];
 
-const dailyFilters: Array<{ key: "all" | ScheduleStatus; label: string }> = [
+type DailyFilterKey = "all" | "booked" | "completed";
+
+const dailyFilters: Array<{ key: DailyFilterKey; label: string }> = [
   { key: "all", label: "全部" },
-  { key: "pending", label: "待确认" },
-  { key: "confirmed", label: "已确认" },
-  { key: "in_progress", label: "进行中" },
+  { key: "booked", label: "已预约" },
   { key: "completed", label: "已完成" },
 ];
 
 type CustomerKind = "bridal" | "daily";
 
-const formatTimeLabel = (startTime?: string, endTime?: string) => {
-  if (startTime && endTime) return `${startTime} - ${endTime}`;
-  if (startTime) return startTime;
-  return "全天";
-};
-
 const getCardMeta = (schedule: Schedule) => {
   const subtypeLabel = getServiceSubtypeLabel(schedule.serviceSubtype);
 
   if (isDailyMakeup(schedule)) {
-    return [subtypeLabel, schedule.location || "未填场地"]
-      .filter(Boolean)
-      .join(" · ");
+    return subtypeLabel;
   }
 
   const outfitLabel = `${schedule.outfitCount ?? 0} 套服装`;
@@ -78,7 +70,9 @@ const getCardMeta = (schedule: Schedule) => {
 };
 
 const getStatusText = (schedule: Schedule) => {
-  if (isDailyMakeup(schedule)) return getStatusLabel(schedule.status);
+  if (isDailyMakeup(schedule)) {
+    return schedule.status === "completed" ? "已完成" : "已预约";
+  }
 
   const stage = normalizeStage(getScheduleBrideStage(schedule));
   return stageDisplay[stage].label;
@@ -95,6 +89,11 @@ const CustomerCard = ({ schedule }: { schedule: Schedule }) => {
     ? "预约档期"
     : getBridalServiceSlotTitle(schedule.serviceSubtype as BridalSubtype);
   const note = schedule.note?.trim();
+  const trialSlots = getScheduleTrialSlots(schedule);
+  const serviceSlots = getScheduleServiceSlots(schedule);
+  const primaryServiceSlot = getSchedulePrimaryServiceSlot(schedule);
+  const showTrial =
+    !daily && normalizeStage(getScheduleBrideStage(schedule)) === "first_deposit";
 
   return (
     <button
@@ -114,7 +113,9 @@ const CustomerCard = ({ schedule }: { schedule: Schedule }) => {
             </span>
           </div>
           <span className="customer-card__subtype">
-            {getServiceSubtypeLabel(schedule.serviceSubtype)}
+            {[getServiceSubtypeLabel(schedule.serviceSubtype), schedule.location]
+              .filter(Boolean)
+              .join(" · ")}
           </span>
         </div>
         <RightOutline className="customer-card__arrow" />
@@ -135,41 +136,36 @@ const CustomerCard = ({ schedule }: { schedule: Schedule }) => {
           </>
         ) : (
           <>
-            <div className="customer-card__schedule-row">
-              <div className="customer-card__schedule-head">
+            {showTrial ? (
+              <div className="customer-card__schedule-row">
                 <span className="customer-card__schedule-label">试妆</span>
-                <strong>
-                  {schedule.trialDate ? formatCompactDate(schedule.trialDate) : "未填日期"}
-                </strong>
+                <strong>{trialSlots.length ? formatCompactDate(trialSlots[0].date) : "未填日期"}</strong>
+                {trialSlots.length ? <em>{formatDaysUntil(trialSlots[0].date)}</em> : null}
               </div>
-              <div className="customer-card__schedule-meta">
-                <ClockCircleOutline />
-                <span>
-                  {schedule.trialDate
-                    ? formatTimeLabel(schedule.trialStartTime, schedule.trialEndTime)
-                    : "试妆时间未填"}
-                </span>
-              </div>
-            </div>
+            ) : null}
             <div className="customer-card__schedule-row">
-              <div className="customer-card__schedule-head">
-                <span className="customer-card__schedule-label is-main">
-                  {serviceTitle}
-                </span>
-                <strong>{formatCompactDate(schedule.date)}</strong>
-              </div>
-              <div className="customer-card__schedule-meta">
-                <ClockCircleOutline />
-                <span>{formatTimeRange(schedule)}</span>
-                <em>{formatDaysUntil(schedule.date)}</em>
-              </div>
+              <span className="customer-card__schedule-label is-main">
+                {serviceTitle}
+              </span>
+              <strong>
+                {serviceSlots.length > 1
+                  ? `${formatCompactDate(primaryServiceSlot?.date ?? schedule.date)} +${serviceSlots.length - 1}`
+                  : formatCompactDate(primaryServiceSlot?.date ?? schedule.date)
+                }
+              </strong>
+              <em>{formatDaysUntil(primaryServiceSlot?.date ?? schedule.date)}</em>
             </div>
+            {serviceSlots.length > 1 ? (
+              <div className="customer-card__schedule-extra">
+                {serviceSlots.slice(1).map((slot) => (
+                  <span key={slot.id}>
+                    {getScheduleSlotLabel(slot, schedule.serviceSubtype)} · {formatCompactDate(slot.date)}
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </>
         )}
-        <div className="customer-card__line">
-          <EnvironmentOutline />
-          <span>{schedule.location || "未填写场地"}</span>
-        </div>
       </div>
 
       <div className="customer-card__footer">
@@ -199,6 +195,47 @@ const CustomerCard = ({ schedule }: { schedule: Schedule }) => {
   );
 };
 
+const CustomerRow = ({ schedule }: { schedule: Schedule }) => {
+  const navigate = useNavigate();
+  const remaining = getRemainingAmount(schedule);
+  const paid = getPaidAmount(schedule);
+  const billable = Number(schedule.amount ?? 0);
+  const isSettled = billable > 0 && remaining === 0;
+  const daily = isDailyMakeup(schedule);
+  const primaryServiceSlot = getSchedulePrimaryServiceSlot(schedule);
+  const keyDate = daily ? schedule.date : (primaryServiceSlot?.date ?? schedule.date);
+
+  return (
+    <button
+      type="button"
+      className="customer-row tap-card app-surface-card"
+      onClick={() => navigate(`/customer/${schedule.id}`)}
+    >
+      <div className="customer-row__avatar">{getInitial(schedule)}</div>
+      <div className="customer-row__main">
+        <div className="customer-row__topline">
+          <strong>{getCustomerName(schedule)}</strong>
+          <span className={`customer-row__status${daily ? " is-daily" : ""}`}>
+            {getStatusText(schedule)}
+          </span>
+        </div>
+        <div className="customer-row__meta">
+          <span>{formatCompactDate(keyDate)}</span>
+          <em>{formatDaysUntil(keyDate)}</em>
+        </div>
+      </div>
+      <div className="customer-row__right">
+        <strong className={isSettled ? "is-settled" : ""}>
+          {formatCurrency(isSettled ? paid : remaining)}
+        </strong>
+      </div>
+    </button>
+  );
+};
+
+type Density = "row" | "card";
+const DENSITY_STORAGE_KEY = "customers-density";
+
 export const CustomersPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -206,11 +243,22 @@ export const CustomersPage = () => {
   const [activeStageFilter, setActiveStageFilter] = useState<
     "all" | BrideStage
   >("all");
-  const [activeStatusFilter, setActiveStatusFilter] = useState<
-    "all" | ScheduleStatus
-  >("all");
+  const [activeStatusFilter, setActiveStatusFilter] =
+    useState<DailyFilterKey>("all");
   const initialKind = searchParams.get("kind") === "daily" ? "daily" : "bridal";
   const [activeKind, setActiveKind] = useState<CustomerKind>(initialKind);
+  const [density, setDensity] = useState<Density>(() =>
+    localStorage.getItem(DENSITY_STORAGE_KEY) === "row" ? "row" : "card",
+  );
+
+  const handleDensityChange = (value: Density) => {
+    setDensity(value);
+    try {
+      localStorage.setItem(DENSITY_STORAGE_KEY, value);
+    } catch {
+      // ignore storage failure
+    }
+  };
 
   const handleKindChange = (kind: CustomerKind) => {
     setActiveKind(kind);
@@ -249,9 +297,9 @@ export const CustomersPage = () => {
   const customers = useMemo(() => {
     const filtered = activeBaseCustomers.filter((schedule) => {
       if (activeKind === "daily") {
-        return (
-          activeStatusFilter === "all" || schedule.status === activeStatusFilter
-        );
+        if (activeStatusFilter === "all") return true;
+        if (activeStatusFilter === "booked") return schedule.status !== "completed";
+        return schedule.status === "completed";
       }
 
       return (
@@ -270,7 +318,32 @@ export const CustomersPage = () => {
   return (
     <div className="customers-page">
       <div className="customers-page__header">
-        <h1 className="text-2xl font-bold">客户进度</h1>
+        <div className="customers-page__head-row">
+          <h1 className="customers-page__title">客户进度</h1>
+          <div
+            className="customers-page__density"
+            role="tablist"
+            aria-label="视图密度"
+          >
+            {([
+              ["row", "紧凑"],
+              ["card", "详细"],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={density === value}
+                className={`customers-page__density-btn${
+                  density === value ? " is-active" : ""
+                }`}
+                onClick={() => handleDensityChange(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div
           className="customers-page__kind-tabs"
           role="tablist"
@@ -310,7 +383,7 @@ export const CustomersPage = () => {
                 }`}
                 onClick={() => {
                   if (activeKind === "daily") {
-                    setActiveStatusFilter(filter.key as "all" | ScheduleStatus);
+                    setActiveStatusFilter(filter.key as DailyFilterKey);
                   } else {
                     setActiveStageFilter(filter.key as "all" | BrideStage);
                   }
@@ -325,10 +398,18 @@ export const CustomersPage = () => {
 
       <div className="customers-page__scroller">
         {customers.length > 0 ? (
-          <div className="customers-page__list">
-            {customers.map((schedule) => (
-              <CustomerCard key={schedule.id} schedule={schedule} />
-            ))}
+          <div
+            className={`customers-page__list${
+              density === "row" ? " is-row" : ""
+            }`}
+          >
+            {customers.map((schedule) =>
+              density === "row" ? (
+                <CustomerRow key={schedule.id} schedule={schedule} />
+              ) : (
+                <CustomerCard key={schedule.id} schedule={schedule} />
+              ),
+            )}
           </div>
         ) : (
           <div className="customers-page__empty app-surface-card">

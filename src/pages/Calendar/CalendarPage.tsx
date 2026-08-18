@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, Empty, Picker, Toast } from "antd-mobile";
 import { LeftOutline, PictureOutline, RightOutline } from "antd-mobile-icons";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useScheduleStore } from "../../app/useScheduleStore";
 import { CalendarShareCard } from "../../components/CalendarShareCard/CalendarShareCard";
 import { ScheduleList } from "../../components/ScheduleList/ScheduleList";
@@ -15,7 +15,6 @@ import {
   setYearMonth,
   toDateKey,
 } from "../../utils/date";
-import { hasConflict } from "../../utils/conflict";
 import {
   formatCurrency,
   getMonthStats,
@@ -25,6 +24,11 @@ import {
 import { createShareImage, getMonthShareFileName } from "../../utils/share";
 import { ShareImagePreview } from "../../components/ShareImagePreview/ShareImagePreview";
 import type { Schedule } from "../../types/schedule";
+import {
+  getScheduleServiceSlots,
+  getScheduleTrialSlots,
+  isDailyMakeup,
+} from "../../types/schedule";
 
 const currentYear = new Date().getFullYear();
 
@@ -49,18 +53,24 @@ const formatCompactIncome = (amount: number) => {
 
 type DaySummary = {
   schedules: Schedule[];
+  trialSchedules: Schedule[];
   paidAmount: number;
   payments: ReturnType<typeof getPaymentEvents>;
 };
 
 const emptyDaySummary = (): DaySummary => ({
   schedules: [],
+  trialSchedules: [],
   paidAmount: 0,
   payments: [],
 });
 
+const uniqueSchedules = (schedules: Schedule[]) =>
+  Array.from(new Map(schedules.map((schedule) => [schedule.id, schedule])).values());
+
 export const CalendarPage = () => {
   const { schedules, removeSchedule } = useScheduleStore();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [todayKey, setTodayKey] = useState(() => toDateKey(new Date()));
   const [selectedDate, setSelectedDate] = useState(() =>
@@ -85,9 +95,17 @@ export const CalendarPage = () => {
     const map = new Map<string, DaySummary>();
 
     for (const schedule of schedules) {
-      const summary = map.get(schedule.date) ?? emptyDaySummary();
-      summary.schedules.push(schedule);
-      map.set(schedule.date, summary);
+      for (const slot of getScheduleServiceSlots(schedule)) {
+        const summary = map.get(slot.date) ?? emptyDaySummary();
+        summary.schedules.push(schedule);
+        map.set(slot.date, summary);
+      }
+
+      for (const slot of getScheduleTrialSlots(schedule)) {
+        const trialSummary = map.get(slot.date) ?? emptyDaySummary();
+        trialSummary.trialSchedules.push(schedule);
+        map.set(slot.date, trialSummary);
+      }
 
       if (schedule.status === "cancelled") continue;
       for (const event of getPaymentEvents(schedule)) {
@@ -102,16 +120,28 @@ export const CalendarPage = () => {
   }, [schedules]);
   const selectedSummary =
     summariesByDate.get(selectedDate) ?? emptyDaySummary();
-  const selectedSchedules = selectedSummary.schedules;
+  const selectedDaySchedules = uniqueSchedules([
+    ...selectedSummary.trialSchedules,
+    ...selectedSummary.schedules,
+  ]);
+  const selectedActiveSchedules = selectedDaySchedules.filter(
+    (schedule) => schedule.status !== "cancelled"
+  );
+  const selectedTrialSchedules = selectedSummary.trialSchedules.filter(
+    (schedule) => schedule.status !== "cancelled"
+  );
+  const selectedFollowSchedules = selectedSummary.schedules.filter(
+    (schedule) => schedule.status !== "cancelled"
+  );
+  const selectedOccupancyCount =
+    selectedTrialSchedules.length + selectedFollowSchedules.length;
+  const selectedConflictCount = Math.max(selectedOccupancyCount - 1, 0);
   const selectedPaidAmount = selectedSummary.paidAmount;
   const selectedPayments = selectedSummary.payments;
   const monthStats = useMemo(
     () => getMonthStats(schedules, selectedDateObj),
     [schedules, selectedDateObj]
   );
-  const conflictCount = selectedSchedules.filter((schedule) =>
-    hasConflict(schedule, schedules, schedule.id)
-  ).length;
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -130,6 +160,15 @@ export const CalendarPage = () => {
   const selectDate = (dateKey: string) => {
     setSelectedDate(dateKey);
     setSearchParams({ date: dateKey }, { replace: true });
+  };
+
+  const openDate = (dateKey: string, daySchedules: Schedule[]) => {
+    if (daySchedules.length === 1) {
+      navigate(`/customer/${daySchedules[0].id}`);
+      return;
+    }
+
+    selectDate(dateKey);
   };
 
   const goPrevious = () =>
@@ -222,19 +261,22 @@ export const CalendarPage = () => {
             </button>
           </div>
         </div>
-        <div className="calendar-page__stats">
-          <div className="calendar-page__stat">
-            <span>档期</span>
-            <strong>{monthStats.scheduleCount}</strong>
-          </div>
-          <div className="calendar-page__stat is-income">
-            <span>实收</span>
-            <strong>{formatCurrency(monthStats.paidAmount)}</strong>
-          </div>
-          <div className="calendar-page__stat is-balance">
-            <span>尾款</span>
-            <strong>{formatCurrency(monthStats.remainingAmount)}</strong>
-          </div>
+        <div className="calendar-page__stats" aria-label="本月档期概览">
+          <span className="calendar-page__stat">
+            <em>已占用</em>
+            <strong>{monthStats.occupiedDays}天</strong>
+          </span>
+          <span className="calendar-page__stat is-available">
+            <em>可预约</em>
+            <strong>{monthStats.availableDays}天</strong>
+          </span>
+          <span className="calendar-page__stats-breakdown">
+            <span className="calendar-page__stat is-mini is-trial">试妆 {monthStats.trialDays}天</span>
+            <span className="calendar-page__stat is-mini is-follow">跟妆 {monthStats.followDays}天</span>
+            <span className={`calendar-page__stat is-mini is-conflict${monthStats.conflictDays > 0 ? " is-warning" : ""}`}>
+              冲突 {monthStats.conflictDays}天
+            </span>
+          </span>
         </div>
       </section>
 
@@ -276,11 +318,24 @@ export const CalendarPage = () => {
           {monthDays.map((day) => {
             const dateKey = toDateKey(day);
             const summary = summariesByDate.get(dateKey) ?? emptyDaySummary();
-            const daySchedules = summary.schedules.filter(
+            const trialSchedules = summary.trialSchedules.filter(
               (schedule) => schedule.status !== "cancelled"
             );
+            const followSchedules = summary.schedules.filter(
+              (schedule) => schedule.status !== "cancelled"
+            );
+            const daySchedules = uniqueSchedules([
+              ...trialSchedules,
+              ...followSchedules,
+            ]);
             const count = daySchedules.length;
-            const balanceCount = daySchedules.filter(
+            const trialCount = trialSchedules.length;
+            const followCount = followSchedules.length;
+            const dailyCount = followSchedules.filter((s) => isDailyMakeup(s)).length;
+            const bridalFollowCount = followCount - dailyCount;
+            const occupancyCount = trialCount + followCount;
+            const hasDayConflict = occupancyCount > 1;
+            const balanceCount = followSchedules.filter(
               (schedule) => getRemainingAmount(schedule) > 0
             ).length;
             const paidAmount = summary.paidAmount;
@@ -298,8 +353,15 @@ export const CalendarPage = () => {
                   currentMonth ? "" : " is-muted"
                 }${count > 0 ? " has-booking" : ""}${
                   balanceCount > 0 ? " has-balance" : ""
-                }`}
-                onClick={() => selectDate(dateKey)}
+                }${trialCount > 0 ? " has-trial" : ""}${
+                  followCount > 0 ? " has-follow" : ""
+                }${hasDayConflict ? " has-conflict" : ""}`}
+                aria-label={`${dateKey}${
+                  trialCount > 0 ? `，试妆${trialCount}个` : ""
+                }${bridalFollowCount > 0 ? `，跟妆${bridalFollowCount}个` : ""}${
+                  dailyCount > 0 ? `，生活妆${dailyCount}个` : ""
+                }${hasDayConflict ? "，档期冲突" : ""}`}
+                onClick={() => openDate(dateKey, daySchedules)}
               >
                 <span className="calendar-page__cell-day">{day.getDate()}</span>
                 {paidAmount > 0 ? (
@@ -311,15 +373,31 @@ export const CalendarPage = () => {
                 ) : (
                   <small className="calendar-page__cell-note is-empty" />
                 )}
-                <span
-                  className={`calendar-page__cell-dot${
-                    count > 0 ? " is-visible" : ""
-                  }${count > 1 ? " is-count" : ""}`}
-                >
-                  {count > 1 ? count : ""}
+                <span className="calendar-page__cell-slots">
+                  {trialCount > 0 && (
+                    <b className="is-trial">
+                      试{trialCount > 1 ? trialCount : ""}
+                    </b>
+                  )}
+                  {bridalFollowCount > 0 && (
+                    <b className="is-follow">
+                      跟{bridalFollowCount > 1 ? bridalFollowCount : ""}
+                    </b>
+                  )}
+                  {dailyCount > 0 && (
+                    <b className="is-daily">
+                      生{dailyCount > 1 ? dailyCount : ""}
+                    </b>
+                  )}
                 </span>
-                {balanceCount > 0 && (
-                  <em className="calendar-page__cell-badge">尾</em>
+                {(hasDayConflict || balanceCount > 0) && (
+                  <em
+                    className={`calendar-page__cell-badge${
+                      hasDayConflict ? " is-conflict" : ""
+                    }`}
+                  >
+                    {hasDayConflict ? "冲" : "尾"}
+                  </em>
                 )}
               </button>
             );
@@ -328,16 +406,24 @@ export const CalendarPage = () => {
 
         <div className="calendar-page__legend" aria-label="档期状态说明">
           <span>
-            <i className="is-booked" />
-            有档期
+            <i className="is-trial" />
+            试妆
           </span>
           <span>
-            <i className="is-free" />
-            空档
+            <i className="is-follow" />
+            跟妆
+          </span>
+          <span>
+            <i className="is-daily" />
+            生活妆
           </span>
           <span>
             <i className="is-balance" />
             待收尾款
+          </span>
+          <span>
+            <i className="is-conflict" />
+            档期冲突
           </span>
         </div>
       </section>
@@ -351,12 +437,12 @@ export const CalendarPage = () => {
             </h2>
           </div>
           <div className="calendar-page__day-count">
-            <strong>{selectedSchedules.filter((schedule) => schedule.status !== "cancelled").length}</strong>
+            <strong>{selectedActiveSchedules.length}</strong>
             <span>档</span>
           </div>
         </div>
 
-        {(selectedPaidAmount > 0 || conflictCount > 0) && (
+        {(selectedPaidAmount > 0 || selectedConflictCount > 0) && (
           <div className="calendar-page__day-metrics">
             {selectedPaidAmount > 0 && (
               <div className="calendar-page__day-metric is-income">
@@ -364,10 +450,10 @@ export const CalendarPage = () => {
                 <strong>{formatCurrency(selectedPaidAmount)}</strong>
               </div>
             )}
-            {conflictCount > 0 && (
+            {selectedConflictCount > 0 && (
               <div className="calendar-page__day-metric is-warning">
-                <span>时间冲突</span>
-                <strong>{conflictCount} 个</strong>
+                <span>档期冲突</span>
+                <strong>{selectedOccupancyCount} 个占用</strong>
               </div>
             )}
           </div>
@@ -393,11 +479,11 @@ export const CalendarPage = () => {
         )}
 
         <div className="calendar-page__day-body">
-          {selectedSchedules.length === 0 ? (
+          {selectedDaySchedules.length === 0 ? (
             <Empty description="这一天没有档期" />
           ) : (
             <ScheduleList
-              schedules={selectedSchedules}
+              schedules={selectedDaySchedules}
               onDelete={confirmRemove}
             />
           )}

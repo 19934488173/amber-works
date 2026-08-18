@@ -10,7 +10,7 @@ import {
   getServiceSubtypeValue,
   normalizeStage,
 } from '../../app/bridalData'
-import type { CustomerFormValues } from '../../app/bridalData'
+import type { CustomerFormServiceSlot, CustomerFormValues } from '../../app/bridalData'
 import { useScheduleStore } from '../../app/useScheduleStore'
 import {
   BridalAppointmentSchedule,
@@ -34,12 +34,32 @@ type Props = {
 
 type PaymentDateField = 'firstDepositDate' | 'trialDepositDate' | 'finalPaymentDate'
 
-type DateField = 'trialDate' | 'date' | PaymentDateField
+type ServiceSlotField = { kind: 'service'; id: string }
+type DateField = 'trialDate' | 'date' | PaymentDateField | ServiceSlotField
 
-type TimeField = 'trialStartTime' | 'trialEndTime' | 'startTime' | 'endTime'
+type TimeField = 'trialStartTime' | 'trialEndTime' | 'startTime' | 'endTime' | ({ kind: 'service'; id: string; field: 'startTime' | 'endTime' })
 
 const getStatusValue = (status?: CustomerFormValues['status']): ScheduleStatus =>
   (Array.isArray(status) ? status[0] : status) ?? 'confirmed'
+
+
+type BridalEditorServiceSlot = {
+  id: string
+  subtype: BridalSubtype
+  date?: Date
+  startTime?: string
+  endTime?: string
+}
+const createEditorServiceSlot = (
+  subtype: BridalSubtype,
+  values?: CustomerFormServiceSlot,
+): BridalEditorServiceSlot => ({
+  id: values?.id ?? crypto.randomUUID(),
+  subtype: (Array.isArray(values?.subtype) ? values?.subtype[0] : values?.subtype) as BridalSubtype ?? subtype,
+  date: values?.date,
+  startTime: values?.startTime ?? '06:00',
+  endTime: values?.endTime ?? '18:00',
+})
 
 const paymentDateClass =
   'profile-form__date-button flex! w-full! items-center! justify-start! min-h-8.5! border-0! bg-transparent! p-0! text-[17px]! font-semibold! leading-tight! text-(--app-text)!'
@@ -71,9 +91,8 @@ export const CustomerProfileForm = ({
   const initialCategory = getServiceCategoryValue(initialValues?.serviceCategory) ?? categoryFromSearch ?? 'bridal'
   const initialJewelry = getJewelryNeedValue(initialValues?.jewelryNeed)
   const [serviceCategory, setServiceCategory] = useState<ServiceCategory>(initialCategory)
-  const [serviceSubtype, setServiceSubtype] = useState<ServiceSubtype>(
-    getServiceSubtypeValue(initialValues?.serviceSubtype) ?? getDefaultServiceSubtype(initialCategory),
-  )
+  const initialSubtype = getServiceSubtypeValue(initialValues?.serviceSubtype) ?? getDefaultServiceSubtype(initialCategory)
+  const [serviceSubtype, setServiceSubtype] = useState<ServiceSubtype>(initialSubtype)
   const [brideStage, setBrideStage] = useState<BrideStage>(
     normalizeStage(getBrideStageValue(initialValues?.brideStage)),
   )
@@ -83,6 +102,18 @@ export const CustomerProfileForm = ({
   const [scheduleStatus, setScheduleStatus] = useState<ScheduleStatus>(
     getStatusValue(initialValues?.status),
   )
+  const [bridalServiceSlots, setBridalServiceSlots] = useState<BridalEditorServiceSlot[]>(() => {
+    const fallbackDate = initialValues?.date ?? (serviceDateFromSearch ? parseDateKey(serviceDateFromSearch) : undefined)
+    const fallbackSlot: CustomerFormServiceSlot = {
+      id: 'service',
+      subtype: initialSubtype,
+      date: fallbackDate,
+      startTime: initialValues?.startTime ?? '06:00',
+      endTime: initialValues?.endTime ?? '18:00',
+    }
+    const slots = initialValues?.serviceSlots?.length ? initialValues.serviceSlots : [fallbackSlot]
+    return slots.map((slot) => createEditorServiceSlot(initialSubtype as BridalSubtype, slot))
+  })
   const [datePickerField, setDatePickerField] = useState<DateField | null>(null)
   const [timePickerField, setTimePickerField] = useState<TimeField | null>(null)
   const jewelryItems = Form.useWatch('jewelryItems', form)
@@ -92,11 +123,19 @@ export const CustomerProfileForm = ({
   const serviceDate = Form.useWatch('date', form)
   const startTime = Form.useWatch('startTime', form)
   const endTime = Form.useWatch('endTime', form)
+  const firstBridalServiceSlot = bridalServiceSlots[0]
 
   const handleCategoryChange = (category: ServiceCategory) => {
     const subtype = getDefaultServiceSubtype(category)
     setServiceCategory(category)
     setServiceSubtype(subtype)
+    if (category === 'bridal') {
+      setBridalServiceSlots((slots) => (
+        slots.length
+          ? slots.map((slot, index) => ({ ...slot, subtype: index === 0 ? subtype as BridalSubtype : slot.subtype }))
+          : [createEditorServiceSlot(subtype as BridalSubtype, { date: form.getFieldValue('date') })]
+      ))
+    }
     form.setFieldsValue({
       serviceCategory: [category],
       serviceSubtype: [subtype],
@@ -105,7 +144,31 @@ export const CustomerProfileForm = ({
 
   const handleSubtypeChange = (subtype: ServiceSubtype) => {
     setServiceSubtype(subtype)
+    if (serviceCategory === 'bridal') {
+      setBridalServiceSlots((slots) => slots.map((slot, index) => (
+        index === 0 ? { ...slot, subtype: subtype as BridalSubtype } : slot
+      )))
+    }
     form.setFieldValue('serviceSubtype', [subtype])
+  }
+
+  const updateBridalServiceSlot = (id: string, updater: (slot: BridalEditorServiceSlot) => BridalEditorServiceSlot) => {
+    setBridalServiceSlots((slots) => slots.map((slot) => (slot.id === id ? updater(slot) : slot)))
+  }
+
+  const addBridalServiceSlot = () => {
+    setBridalServiceSlots((slots) => [
+      ...slots,
+      createEditorServiceSlot(serviceSubtype as BridalSubtype, {
+        subtype: serviceSubtype,
+        startTime: '06:00',
+        endTime: '18:00',
+      }),
+    ])
+  }
+
+  const removeBridalServiceSlot = (id: string) => {
+    setBridalServiceSlots((slots) => (slots.length > 1 ? slots.filter((slot) => slot.id !== id) : slots))
   }
 
   const handleJewelryChange = (choice: JewelryChoice) => {
@@ -120,6 +183,10 @@ export const CustomerProfileForm = ({
       ...values,
       serviceCategory,
       serviceSubtype,
+      serviceSlots: serviceCategory === 'bridal' ? bridalServiceSlots : undefined,
+      date: serviceCategory === 'bridal' ? firstBridalServiceSlot?.date : values.date,
+      startTime: serviceCategory === 'bridal' ? firstBridalServiceSlot?.startTime : values.startTime,
+      endTime: serviceCategory === 'bridal' ? firstBridalServiceSlot?.endTime : values.endTime,
       brideStage,
       jewelryNeed: jewelryChoice,
       jewelryItems: jewelryChoice === 'none' ? undefined : values.jewelryItems,
@@ -131,7 +198,7 @@ export const CustomerProfileForm = ({
       return
     }
 
-    if (serviceCategory === 'bridal' && !payload.date) {
+    if (serviceCategory === 'bridal' && !bridalServiceSlots.some((slot) => slot.date)) {
       Toast.show('请选择跟妆档期日期')
       return
     }
@@ -151,8 +218,16 @@ export const CustomerProfileForm = ({
     navigate('/customers', { replace: true })
   }
 
-  const datePickerValue = datePickerField ? form.getFieldValue(datePickerField) : undefined
-  const timePickerValue = timePickerField ? form.getFieldValue(timePickerField) : undefined
+  const datePickerValue = !datePickerField
+    ? undefined
+    : typeof datePickerField === 'object'
+      ? bridalServiceSlots.find((slot) => slot.id === datePickerField.id)?.date
+      : form.getFieldValue(datePickerField)
+  const timePickerValue = !timePickerField
+    ? undefined
+    : typeof timePickerField === 'object'
+      ? bridalServiceSlots.find((slot) => slot.id === timePickerField.id)?.[timePickerField.field]
+      : form.getFieldValue(timePickerField)
   const parsedTimePickerValue = parseTimeString(timePickerValue)
 
   return (
@@ -226,17 +301,16 @@ export const CustomerProfileForm = ({
                     startTime: trialStartTime,
                     endTime: trialEndTime,
                   }}
-                  service={{
-                    date: serviceDate,
-                    startTime,
-                    endTime,
-                  }}
+                  services={bridalServiceSlots}
                   onPickTrialDate={() => setDatePickerField('trialDate')}
-                  onPickServiceDate={() => setDatePickerField('date')}
+                  onPickServiceDate={(id) => setDatePickerField({ kind: 'service', id })}
                   onPickTrialStartTime={() => setTimePickerField('trialStartTime')}
                   onPickTrialEndTime={() => setTimePickerField('trialEndTime')}
-                  onPickServiceStartTime={() => setTimePickerField('startTime')}
-                  onPickServiceEndTime={() => setTimePickerField('endTime')}
+                  onPickServiceStartTime={(id) => setTimePickerField({ kind: 'service', id, field: 'startTime' })}
+                  onPickServiceEndTime={(id) => setTimePickerField({ kind: 'service', id, field: 'endTime' })}
+                  onChangeServiceSubtype={(id, subtype) => updateBridalServiceSlot(id, (slot) => ({ ...slot, subtype }))}
+                  onAddService={addBridalServiceSlot}
+                  onRemoveService={removeBridalServiceSlot}
                 />
               </Form.Item>
               <Form.Item name="trialDate" hidden><Input /></Form.Item>
@@ -403,7 +477,11 @@ export const CustomerProfileForm = ({
         onClose={() => setDatePickerField(null)}
         onConfirm={(value) => {
           if (datePickerField) {
-            form.setFieldValue(datePickerField, value)
+            if (typeof datePickerField === 'object') {
+              updateBridalServiceSlot(datePickerField.id, (slot) => ({ ...slot, date: value }))
+            } else {
+              form.setFieldValue(datePickerField, value)
+            }
           }
           setDatePickerField(null)
         }}
@@ -419,7 +497,12 @@ export const CustomerProfileForm = ({
           if (timePickerField) {
             const nextTime = parseTimeString(timePickerValue)
             nextTime.setHours(Number(value[0]), Number(value[1]), 0, 0)
-            form.setFieldValue(timePickerField, formatTimeString(nextTime))
+            const formattedTime = formatTimeString(nextTime)
+            if (typeof timePickerField === 'object') {
+              updateBridalServiceSlot(timePickerField.id, (slot) => ({ ...slot, [timePickerField.field]: formattedTime }))
+            } else {
+              form.setFieldValue(timePickerField, formattedTime)
+            }
           }
           setTimePickerField(null)
         }}

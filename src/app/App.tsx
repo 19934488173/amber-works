@@ -52,7 +52,7 @@ export default function App() {
   return (
     <ScheduleProvider userId={user?.id}>
       <div className="app-shell mx-auto min-h-dvh w-full max-w-107.5 bg-(--app-bg) text-(--app-text) sm:my-2 sm:overflow-hidden sm:rounded-7 sm:border sm:border-(--app-border)">
-        <main className={hideChrome ? 'min-h-dvh bg-(--app-bg)' : 'min-h-dvh bg-(--app-bg) px-4 pb-26 pt-4'} id="main-content">
+        <main className={hideChrome ? 'min-h-dvh bg-(--app-bg)' : 'min-h-dvh bg-(--app-bg) px-3 pb-26 pt-3'} id="main-content">
           {!hideChrome ? (
             <div className="studio-brand-bar">
               <StudioBrand variant="compact" />

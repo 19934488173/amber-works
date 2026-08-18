@@ -1,45 +1,41 @@
 import type { ScheduleStatus } from '../../types/schedule'
-import { scheduleStatusOptions } from '../../types/schedule'
 
 type Props = {
   status: ScheduleStatus
   onChange: (status: ScheduleStatus) => void
 }
 
-const statusHints: Record<ScheduleStatus, string> = {
-  pending: '客人已咨询，待确认是否预约',
-  confirmed: '已收预约定金，档期已锁定',
-  in_progress: '服务当天或正在进行中',
-  completed: '本次服务已完成',
-  cancelled: '客人取消，档期释放',
-}
+const dailyStatuses: Array<{ value: ScheduleStatus; label: string; hint: string }> = [
+  { value: 'confirmed', label: '已预约', hint: '已收预约定金，档期已锁定' },
+  { value: 'completed', label: '已完成', hint: '本次服务已完成' },
+]
 
-const mainStatuses: ScheduleStatus[] = ['pending', 'confirmed', 'in_progress', 'completed']
+const normalizeDaily = (status: ScheduleStatus): ScheduleStatus =>
+  status === 'completed' || status === 'cancelled' ? status : 'confirmed'
 
 export const ScheduleStatusPicker = ({ status, onChange }: Props) => {
-  const current = scheduleStatusOptions.find((option) => option.value === status)
+  const current = normalizeDaily(status)
+  const currentMeta = dailyStatuses.find((option) => option.value === current)
 
   return (
     <div className="status-picker">
       <div className="status-picker__intro">
         <strong>档期状态</strong>
-        <span>记录当前预约进度</span>
+        <span>生活妆仅预约与完成两个状态</span>
       </div>
 
       <div className="status-picker__options" role="listbox" aria-label="档期状态">
-        {mainStatuses.map((value) => {
-          const option = scheduleStatusOptions.find((item) => item.value === value)
-          if (!option) return null
-          const active = status === value
+        {dailyStatuses.map((option) => {
+          const active = current === option.value
 
           return (
             <button
-              key={value}
+              key={option.value}
               type="button"
               role="option"
               aria-selected={active}
               className={`status-picker__option${active ? ' is-active' : ''}`}
-              onClick={() => onChange(value)}
+              onClick={() => onChange(option.value)}
             >
               {option.label}
             </button>
@@ -56,8 +52,8 @@ export const ScheduleStatusPicker = ({ status, onChange }: Props) => {
       </button>
 
       <div className="status-picker__summary">
-        <strong>{current?.label ?? '待确认'}</strong>
-        <p>{statusHints[status]}</p>
+        <strong>{status === 'cancelled' ? '已取消' : currentMeta?.label ?? '已预约'}</strong>
+        <p>{status === 'cancelled' ? '客人取消，档期释放' : currentMeta?.hint ?? ''}</p>
       </div>
     </div>
   )
