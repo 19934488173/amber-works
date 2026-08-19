@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { Button, Empty } from "antd-mobile";
+import { Button, Empty, Picker } from "antd-mobile";
 import {
   CalendarOutline,
   ClockCircleOutline,
+  LeftOutline,
   RightOutline,
   ShopbagOutline,
   StarOutline,
@@ -28,6 +29,7 @@ import {
   getScheduleBrideStage,
   getSchedulePrimaryServiceSlot,
   getScheduleServiceSlots,
+  getScheduleSlotDates,
   getScheduleSlotLabel,
   getScheduleTrialSlots,
   getServiceSubtypeLabel,
@@ -37,8 +39,36 @@ import { formatTimeRange, sortSchedules } from "../../utils/date";
 import {
   formatCurrency,
   getPaidAmount,
+  getPaymentEvents,
   getRemainingAmount,
 } from "../../utils/statistics";
+
+const currentYear = new Date().getFullYear();
+
+const monthPickerColumns = [
+  Array.from({ length: 21 }, (_, index) => {
+    const year = currentYear - 10 + index;
+    return { label: `${year}年`, value: year };
+  }),
+  Array.from({ length: 12 }, (_, index) => ({
+    label: `${index + 1}月`,
+    value: index,
+  })),
+];
+
+const formatMonthKeyLabel = (monthKey: string) => {
+  const [year, month] = monthKey.split("-").map(Number);
+  return year === currentYear ? `${month}月` : `${year}年${month}月`;
+};
+
+const toMonthKey = (year: number, monthIndex: number) =>
+  `${year}-${`${monthIndex + 1}`.padStart(2, "0")}`;
+
+const shiftMonthKey = (monthKey: string, delta: number) => {
+  const [year, month] = monthKey.split("-").map(Number);
+  const next = new Date(year, month - 1 + delta, 1);
+  return toMonthKey(next.getFullYear(), next.getMonth());
+};
 
 const bridalFilters: Array<{ key: "all" | BrideStage; label: string }> = [
   { key: "all", label: "全部" },
@@ -245,6 +275,8 @@ export const CustomersPage = () => {
   >("all");
   const [activeStatusFilter, setActiveStatusFilter] =
     useState<DailyFilterKey>("all");
+  const [activeMonth, setActiveMonth] = useState<string>("all");
+  const [monthPickerVisible, setMonthPickerVisible] = useState(false);
   const initialKind = searchParams.get("kind") === "daily" ? "daily" : "bridal";
   const [activeKind, setActiveKind] = useState<CustomerKind>(initialKind);
   const [density, setDensity] = useState<Density>(() =>
@@ -294,8 +326,29 @@ export const CustomersPage = () => {
     [schedules]
   );
 
+  const monthCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const schedule of activeBaseCustomers) {
+      for (const monthKey of new Set(
+        getScheduleSlotDates(schedule).map((date) => date.slice(0, 7)),
+      )) {
+        counts.set(monthKey, (counts.get(monthKey) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [activeBaseCustomers]);
+
   const customers = useMemo(() => {
     const filtered = activeBaseCustomers.filter((schedule) => {
+      if (
+        activeMonth !== "all" &&
+        !getScheduleSlotDates(schedule).some((date) =>
+          date.startsWith(activeMonth)
+        )
+      ) {
+        return false;
+      }
+
       if (activeKind === "daily") {
         if (activeStatusFilter === "all") return true;
         if (activeStatusFilter === "booked") return schedule.status !== "completed";
@@ -309,7 +362,49 @@ export const CustomersPage = () => {
     });
 
     return sortSchedules(filtered);
-  }, [activeBaseCustomers, activeKind, activeStageFilter, activeStatusFilter]);
+  }, [
+    activeBaseCustomers,
+    activeKind,
+    activeMonth,
+    activeStageFilter,
+    activeStatusFilter,
+  ]);
+
+  const monthSummary = useMemo(() => {
+    if (activeMonth === "all") return null;
+
+    let slotCount = 0;
+    let paidAmount = 0;
+    let remainingAmount = 0;
+    for (const schedule of customers) {
+      slotCount +=
+        getScheduleServiceSlots(schedule).filter((slot) =>
+          slot.date.startsWith(activeMonth)
+        ).length +
+        getScheduleTrialSlots(schedule).filter((slot) =>
+          slot.date.startsWith(activeMonth)
+        ).length;
+      remainingAmount += getRemainingAmount(schedule);
+      paidAmount += getPaymentEvents(schedule)
+        .filter((event) => event.date.startsWith(activeMonth))
+        .reduce((sum, event) => sum + event.amount, 0);
+    }
+    return { customerCount: customers.length, slotCount, paidAmount, remainingAmount };
+  }, [activeMonth, customers]);
+
+  const activeMonthLabel =
+    activeMonth === "all" ? undefined : formatMonthKeyLabel(activeMonth);
+  const baselineMonthKey = useMemo(() => {
+    if (activeMonth !== "all") return activeMonth;
+    const now = new Date();
+    return toMonthKey(now.getFullYear(), now.getMonth());
+  }, [activeMonth]);
+  const stepMonth = (delta: number) =>
+    setActiveMonth(shiftMonthKey(baselineMonthKey, delta));
+  const monthPickerValue = useMemo(() => {
+    const [year, month] = baselineMonthKey.split("-").map(Number);
+    return [year, month - 1];
+  }, [baselineMonthKey]);
 
   const currentFilters = activeKind === "daily" ? dailyFilters : bridalFilters;
   const activeFilter =
@@ -394,6 +489,76 @@ export const CustomersPage = () => {
             );
           })}
         </div>
+
+        <div className="customers-page__month-nav" aria-label="按月份筛选">
+          <button
+            type="button"
+            className="customers-page__month-nav-btn"
+            aria-label="上个月"
+            onClick={() => stepMonth(-1)}
+          >
+            <LeftOutline fontSize={14} />
+          </button>
+          <button
+            type="button"
+            className="customers-page__month-nav-title"
+            onClick={() => setMonthPickerVisible(true)}
+          >
+            <strong>
+              <CalendarOutline fontSize={13} />
+              {activeMonthLabel ?? "全部月份"}
+            </strong>
+            <span>
+              {activeMonth === "all"
+                ? `共 ${activeBaseCustomers.length} 位客户`
+                : `${monthCounts.get(activeMonth) ?? 0} 位客户`}
+              {activeMonth !== "all" && (
+                <em
+                  role="button"
+                  tabIndex={0}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setActiveMonth("all");
+                  }}
+                >
+                  看全部
+                </em>
+              )}
+            </span>
+          </button>
+          <button
+            type="button"
+            className="customers-page__month-nav-btn"
+            aria-label="下个月"
+            onClick={() => stepMonth(1)}
+          >
+            <RightOutline fontSize={14} />
+          </button>
+        </div>
+
+        {monthSummary && activeMonthLabel && (
+          <div className="customers-page__month-summary" aria-label="月度概览">
+            <span className="customers-page__month-summary-title">
+              {activeMonthLabel}概览
+            </span>
+            <span className="customers-page__month-summary-item">
+              <em>客户</em>
+              <strong>{monthSummary.customerCount}位</strong>
+            </span>
+            <span className="customers-page__month-summary-item">
+              <em>档期</em>
+              <strong>{monthSummary.slotCount}档</strong>
+            </span>
+            <span className="customers-page__month-summary-item">
+              <em>当月实收</em>
+              <strong>{formatCurrency(monthSummary.paidAmount)}</strong>
+            </span>
+            <span className="customers-page__month-summary-item">
+              <em>待收款</em>
+              <strong>{formatCurrency(monthSummary.remainingAmount)}</strong>
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="customers-page__scroller">
@@ -424,6 +589,20 @@ export const CustomersPage = () => {
           </div>
         )}
       </div>
+
+      <Picker
+        visible={monthPickerVisible}
+        columns={monthPickerColumns}
+        title="选择月份"
+        value={monthPickerValue}
+        onClose={() => setMonthPickerVisible(false)}
+        onConfirm={(value) => {
+          const year = Number(value[0]);
+          const monthIndex = Number(value[1]);
+          setActiveMonth(toMonthKey(year, monthIndex));
+          setMonthPickerVisible(false);
+        }}
+      />
     </div>
   );
 };

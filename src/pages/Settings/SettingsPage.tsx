@@ -1,6 +1,5 @@
 import { Dialog, Toast } from 'antd-mobile'
 import {
-  DeleteOutline,
   DownlandOutline,
   FileOutline,
   PhoneFill,
@@ -45,22 +44,6 @@ export const SettingsPage = () => {
           Toast.show('已导入备份')
         } catch (error) {
           Toast.show(error instanceof Error ? error.message : '导入失败')
-        }
-      },
-    })
-  }
-
-  const confirmClear = () => {
-    void Dialog.confirm({
-      content: '清空全部数据？此操作不可恢复。',
-      confirmText: '清空',
-      onConfirm: async () => {
-        try {
-          await scheduleRepository.clearAll()
-          await refresh()
-          Toast.show('已清空')
-        } catch (error) {
-          Toast.show(error instanceof Error ? error.message : '清空失败')
         }
       },
     })
@@ -242,11 +225,6 @@ export const SettingsPage = () => {
           </div>
         </div>
       </section>
-
-      <button type="button" className="settings-page__danger-btn" onClick={confirmClear}>
-        <DeleteOutline fontSize={16} />
-        清空全部数据
-      </button>
     </div>
   )
 }

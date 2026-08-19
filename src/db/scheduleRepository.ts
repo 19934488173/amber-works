@@ -291,20 +291,6 @@ export const localScheduleRepository = {
     })
   },
 
-  async clearAll() {
-    const now = new Date().toISOString()
-    const existing = await db.settings.get('default')
-    await db.transaction('rw', db.schedules, db.settings, async () => {
-      await db.schedules.clear()
-      await db.settings.put({
-        id: 'default',
-        createdAt: existing?.createdAt ?? now,
-        updatedAt: now,
-        lastBackupAt: existing?.lastBackupAt,
-      })
-    })
-  },
-
   async markBackupNow() {
     const now = new Date().toISOString()
     await db.settings.put({
@@ -353,9 +339,6 @@ const assertSupabase = () => {
 const throwCloudError = (error: { message: string } | null, fallback: string) => {
   if (error) throw new Error(`${fallback}：${error.message}`)
 }
-
-const isMissingCloudFunctionError = (error: { message: string } | null) =>
-  Boolean(error?.message.includes('replace_user_backup'))
 
 const throwConflictError = () => {
   throw new Error('云端数据已被其他设备修改，请刷新后再试')
@@ -581,41 +564,6 @@ const createCloudRepository = (userId: string): Repository => ({
     throwCloudError(error, '导入云端备份失败')
   },
 
-  async clearAll() {
-    const client = assertSupabase()
-    const now = new Date().toISOString()
-    const existing = await this.getSettings()
-
-    const params: ReplaceUserBackupParams = {
-      p_schedules: [],
-      p_settings: createSettingsRow(userId, {
-        id: 'default',
-        createdAt: existing.createdAt,
-        updatedAt: now,
-        lastBackupAt: existing.lastBackupAt,
-      }),
-    }
-
-    const { error } = await client.rpc('replace_user_backup', params)
-    if (isMissingCloudFunctionError(error)) {
-      const { error: deleteError } = await client
-        .from('schedules')
-        .delete()
-        .eq('user_id', userId)
-
-      throwCloudError(deleteError, '清空云端数据失败')
-
-      const { error: settingsError } = await client
-        .from('app_settings')
-        .upsert(params.p_settings, { onConflict: 'user_id' })
-
-      throwCloudError(settingsError, '清空云端数据失败')
-      return
-    }
-
-    throwCloudError(error, '清空云端数据失败')
-  },
-
   async markBackupNow() {
     const now = new Date().toISOString()
     const settings = await this.getSettings()
@@ -681,10 +629,6 @@ export const createScheduleRepository = (knownUserId?: string | null) => ({
 
   async importBackup(payload: BackupPayload) {
     return (await getActiveRepository(knownUserId)).importBackup(payload)
-  },
-
-  async clearAll() {
-    return (await getActiveRepository(knownUserId)).clearAll()
   },
 
   async markBackupNow() {

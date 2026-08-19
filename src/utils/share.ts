@@ -39,7 +39,7 @@ export const createShareImage = async (
   const dataUrl = await toPng(node, {
     cacheBust: true,
     pixelRatio: 2,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f8f2ec',
   })
 
   const blob = await dataUrlToBlob(dataUrl)

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, Empty, Picker, Toast } from "antd-mobile";
 import { LeftOutline, PictureOutline, RightOutline } from "antd-mobile-icons";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useScheduleStore } from "../../app/useScheduleStore";
 import { CalendarShareCard } from "../../components/CalendarShareCard/CalendarShareCard";
 import { ScheduleList } from "../../components/ScheduleList/ScheduleList";
@@ -70,7 +70,6 @@ const uniqueSchedules = (schedules: Schedule[]) =>
 
 export const CalendarPage = () => {
   const { schedules, removeSchedule } = useScheduleStore();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [todayKey, setTodayKey] = useState(() => toDateKey(new Date()));
   const [selectedDate, setSelectedDate] = useState(() =>
@@ -160,15 +159,6 @@ export const CalendarPage = () => {
   const selectDate = (dateKey: string) => {
     setSelectedDate(dateKey);
     setSearchParams({ date: dateKey }, { replace: true });
-  };
-
-  const openDate = (dateKey: string, daySchedules: Schedule[]) => {
-    if (daySchedules.length === 1) {
-      navigate(`/customer/${daySchedules[0].id}`);
-      return;
-    }
-
-    selectDate(dateKey);
   };
 
   const goPrevious = () =>
@@ -361,7 +351,7 @@ export const CalendarPage = () => {
                 }${bridalFollowCount > 0 ? `，跟妆${bridalFollowCount}个` : ""}${
                   dailyCount > 0 ? `，生活妆${dailyCount}个` : ""
                 }${hasDayConflict ? "，档期冲突" : ""}`}
-                onClick={() => openDate(dateKey, daySchedules)}
+                onClick={() => selectDate(dateKey)}
               >
                 <span className="calendar-page__cell-day">{day.getDate()}</span>
                 {paidAmount > 0 ? (
