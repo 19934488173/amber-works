@@ -17,9 +17,11 @@ import {
 } from "../../utils/date";
 import {
   formatCurrency,
+  formatSignedCurrency,
   getMonthStats,
   getPaymentEvents,
   getRemainingAmount,
+  groupSameDayPayments,
 } from "../../utils/statistics";
 import { createShareImage, getMonthShareFileName } from "../../utils/share";
 import { ShareImagePreview } from "../../components/ShareImagePreview/ShareImagePreview";
@@ -136,7 +138,10 @@ export const CalendarPage = () => {
     selectedTrialSchedules.length + selectedFollowSchedules.length;
   const selectedConflictCount = Math.max(selectedOccupancyCount - 1, 0);
   const selectedPaidAmount = selectedSummary.paidAmount;
-  const selectedPayments = selectedSummary.payments;
+  const selectedPayments = useMemo(
+    () => groupSameDayPayments(selectedSummary.payments),
+    [selectedSummary.payments]
+  );
   const monthStats = useMemo(
     () => getMonthStats(schedules, selectedDateObj),
     [schedules, selectedDateObj]
@@ -260,12 +265,9 @@ export const CalendarPage = () => {
             <em>可预约</em>
             <strong>{monthStats.availableDays}天</strong>
           </span>
-          <span className="calendar-page__stats-breakdown">
-            <span className="calendar-page__stat is-mini is-trial">试妆 {monthStats.trialDays}天</span>
-            <span className="calendar-page__stat is-mini is-follow">跟妆 {monthStats.followDays}天</span>
-            <span className={`calendar-page__stat is-mini is-conflict${monthStats.conflictDays > 0 ? " is-warning" : ""}`}>
-              冲突 {monthStats.conflictDays}天
-            </span>
+          <span className="calendar-page__stat is-income">
+            <em>实收</em>
+            <strong>{formatCurrency(monthStats.paidAmount)}</strong>
           </span>
         </div>
       </section>
@@ -434,12 +436,6 @@ export const CalendarPage = () => {
 
         {(selectedPaidAmount > 0 || selectedConflictCount > 0) && (
           <div className="calendar-page__day-metrics">
-            {selectedPaidAmount > 0 && (
-              <div className="calendar-page__day-metric is-income">
-                <span>实收</span>
-                <strong>{formatCurrency(selectedPaidAmount)}</strong>
-              </div>
-            )}
             {selectedConflictCount > 0 && (
               <div className="calendar-page__day-metric is-warning">
                 <span>档期冲突</span>
@@ -451,18 +447,18 @@ export const CalendarPage = () => {
 
         {selectedPayments.length > 0 && (
           <div className="calendar-page__payments">
-            {selectedPayments.map((event) => (
+            {selectedPayments.map((group) => (
               <div
                 className="calendar-page__payment"
-                key={`${event.schedule.id}-${event.type}-${event.date}`}
+                key={group.key}
               >
                 <div>
                   <strong>
-                    {event.schedule.customer || event.schedule.title}
+                    {group.schedule.customer || group.schedule.title}
                   </strong>
-                  <small>{event.label}</small>
+                  <small>{group.label}</small>
                 </div>
-                <b>+{formatCurrency(event.amount)}</b>
+                <b>{formatSignedCurrency(group.amount)}</b>
               </div>
             ))}
           </div>

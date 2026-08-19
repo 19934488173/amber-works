@@ -8,9 +8,6 @@ export type MonthStats = {
   scheduleCount: number
   occupiedDays: number
   availableDays: number
-  trialDays: number
-  followDays: number
-  conflictDays: number
 }
 
 export type PaymentEvent = {
@@ -50,6 +47,39 @@ export const getPaymentEvents = (schedule: Schedule): PaymentEvent[] =>
       date: record.date,
       amount: getStageAmount(record.amount),
     }))
+
+export type GroupedPayment = {
+  key: string
+  schedule: Schedule
+  date: string
+  label: string
+  amount: number
+}
+
+// 同一客户同一天的多笔流水合并为一条展示（标签用 + 连接，金额累加）
+export const groupSameDayPayments = (events: PaymentEvent[]): GroupedPayment[] => {
+  const groups: GroupedPayment[] = []
+  const indexByKey = new Map<string, number>()
+  for (const event of events) {
+    const key = `${event.schedule.id}|${event.date}`
+    const existingIndex = indexByKey.get(key)
+    if (existingIndex === undefined) {
+      indexByKey.set(key, groups.length)
+      groups.push({
+        key,
+        schedule: event.schedule,
+        date: event.date,
+        label: event.label,
+        amount: event.amount,
+      })
+    } else {
+      const group = groups[existingIndex]
+      group.label = `${group.label}+${event.label}`
+      group.amount += event.amount
+    }
+  }
+  return groups
+}
 
 export const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('zh-CN', {
@@ -100,9 +130,6 @@ const countAvailableDays = (date: Date, occupiedDateKeys: Set<string>) => {
 export const getMonthStats = (schedules: Schedule[], date: Date): MonthStats => {
   const monthKey = getMonthKey(date)
   const occupiedDateKeys = new Set<string>()
-  const trialDateKeys = new Set<string>()
-  const followDateKeys = new Set<string>()
-  const occupancyCounts = new Map<string, number>()
   let scheduleCount = 0
   const activeSchedules = schedules.filter((schedule) => schedule.status !== 'cancelled')
   const billableSchedules = activeSchedules.filter((schedule) =>
@@ -111,17 +138,13 @@ export const getMonthStats = (schedules: Schedule[], date: Date): MonthStats => 
   for (const schedule of activeSchedules) {
     for (const slot of getScheduleTrialSlots(schedule)) {
       if (!slot.date.startsWith(monthKey)) continue
-      trialDateKeys.add(slot.date)
       occupiedDateKeys.add(slot.date)
-      occupancyCounts.set(slot.date, (occupancyCounts.get(slot.date) ?? 0) + 1)
       scheduleCount += 1
     }
 
     for (const slot of getScheduleServiceSlots(schedule)) {
       if (!slot.date.startsWith(monthKey)) continue
       occupiedDateKeys.add(slot.date)
-      occupancyCounts.set(slot.date, (occupancyCounts.get(slot.date) ?? 0) + 1)
-      if (schedule.serviceCategory === 'bridal') followDateKeys.add(slot.date)
       scheduleCount += 1
     }
   }
@@ -139,8 +162,5 @@ export const getMonthStats = (schedules: Schedule[], date: Date): MonthStats => 
     scheduleCount,
     occupiedDays: occupiedDateKeys.size,
     availableDays: countAvailableDays(date, occupiedDateKeys),
-    trialDays: trialDateKeys.size,
-    followDays: followDateKeys.size,
-    conflictDays: Array.from(occupancyCounts.values()).filter((count) => count > 1).length,
   }
 }

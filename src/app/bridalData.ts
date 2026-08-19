@@ -10,7 +10,6 @@ import {
   referenceImageGroupOptions,
 } from '../types/schedule'
 import { DAY_MS, getTodayKey, parseDateKey, toDateKey } from '../utils/date'
-import { getMonthKey, getPaymentEvents, getRemainingAmount } from '../utils/statistics'
 
 export const stageFlow: BrideStage[] = ['inquiry', 'first_deposit', 'trial', 'completed']
 
@@ -403,51 +402,6 @@ export const draftFromForm = (values: CustomerFormValues, existing?: Schedule): 
     note: values.note?.trim() || undefined,
     referenceImages: existing?.referenceImages ?? [],
     paymentRecords,
-  }
-}
-
-export const getMonthlyIncomeRows = (schedules: Schedule[], anchorDate = new Date(), count = 4) => {
-  const rows = Array.from({ length: count }, (_, index) => {
-    const date = new Date(anchorDate.getFullYear(), anchorDate.getMonth() - index, 1)
-    const monthKey = getMonthKey(date)
-    const paid = schedules
-      .filter((schedule) => schedule.status !== 'cancelled')
-      .flatMap((schedule) => getPaymentEvents(schedule))
-      .filter((event) => event.date.startsWith(monthKey))
-      .reduce((sum, event) => sum + event.amount, 0)
-
-    return {
-      monthKey,
-      label: `${date.getFullYear()}.${date.getMonth() + 1}`,
-      paid,
-    }
-  })
-
-  let max = 1
-  for (const row of rows) {
-    if (Math.abs(row.paid) > max) max = Math.abs(row.paid)
-  }
-
-  return rows.map((row) => ({
-    ...row,
-    percent: Math.max(14, Math.round((Math.abs(row.paid) / max) * 100)),
-  }))
-}
-
-export const getIncomeSummary = (schedules: Schedule[], anchorDate = new Date()) => {
-  const monthKey = getMonthKey(anchorDate)
-  const paymentEvents = schedules
-    .filter((schedule) => schedule.status !== 'cancelled')
-    .flatMap((schedule) => getPaymentEvents(schedule))
-  const monthPayments = paymentEvents.filter((event) => event.date.startsWith(monthKey))
-  const pendingCustomers = schedules.filter((schedule) => schedule.status !== 'cancelled' && getRemainingAmount(schedule) > 0)
-
-  return {
-    received: monthPayments.reduce((sum, event) => sum + event.amount, 0),
-    paymentCount: monthPayments.length,
-    pending: pendingCustomers.reduce((sum, schedule) => sum + getRemainingAmount(schedule), 0),
-    pendingCount: pendingCustomers.length,
-    monthPayments,
   }
 }
 

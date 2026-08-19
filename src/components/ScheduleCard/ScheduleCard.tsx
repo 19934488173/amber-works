@@ -33,9 +33,6 @@ export const ScheduleCard = ({
   onDuplicate,
 }: Props) => {
   const navigate = useNavigate();
-  const title = schedule.customer
-    ? `${schedule.customer} · ${schedule.title}`
-    : schedule.title;
   const amount = getBillableAmount(schedule);
   const paidAmount = getPaidAmount(schedule);
   const remainingAmount = getRemainingAmount(schedule);
@@ -43,11 +40,14 @@ export const ScheduleCard = ({
   const daily = isDailyMakeup(schedule);
   const typeLabel = getServiceSubtypeLabel(schedule.serviceSubtype);
   const serviceSlot = getSchedulePrimaryServiceSlot(schedule);
-  const outfitLabel = daily
-    ? typeLabel
-    : schedule.outfitCount
-      ? `${typeLabel} · ${schedule.outfitCount} 套`
-      : typeLabel;
+  const title = daily
+    ? schedule.customer || schedule.title
+    : schedule.customer
+      ? `${schedule.customer} · ${schedule.title}`
+      : schedule.title;
+  const outfitLabel = schedule.outfitCount
+    ? `${typeLabel} · ${schedule.outfitCount} 套`
+    : typeLabel;
   const jewelryLabel = schedule.jewelryNeed
     ? getJewelryNeedLabel(schedule.jewelryNeed)
     : daily ? null : "饰品未记";
@@ -123,10 +123,12 @@ export const ScheduleCard = ({
             </strong>
           </div>
         </div>
-        <div className="schedule-card__details">
-          <span>{outfitLabel}</span>
-          {jewelryLabel ? <span>{jewelryLabel}</span> : null}
-        </div>
+        {(!daily || jewelryLabel) && (
+          <div className="schedule-card__details">
+            {!daily && <span>{outfitLabel}</span>}
+            {jewelryLabel ? <span>{jewelryLabel}</span> : null}
+          </div>
+        )}
         {schedule.jewelryItems && (
           <div className="schedule-card__note">
             饰品：{schedule.jewelryItems}

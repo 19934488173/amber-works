@@ -2,40 +2,32 @@ import { useMemo, useState } from "react";
 import { Button, Empty, Picker } from "antd-mobile";
 import {
   CalendarOutline,
-  ClockCircleOutline,
   LeftOutline,
   RightOutline,
-  ShopbagOutline,
-  StarOutline,
 } from "antd-mobile-icons";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   formatCompactDate,
-  formatDaysUntil,
   getCustomerName,
   getInitial,
   normalizeStage,
   stageDisplay,
+  stageFlow,
 } from "../../app/bridalData";
 import { useScheduleStore } from "../../app/useScheduleStore";
 import type {
   BrideStage,
-  BridalSubtype,
   Schedule,
 } from "../../types/schedule";
 import {
-  getBridalServiceSlotTitle,
-  getJewelryNeedLabel,
   getScheduleBrideStage,
   getSchedulePrimaryServiceSlot,
   getScheduleServiceSlots,
   getScheduleSlotDates,
-  getScheduleSlotLabel,
   getScheduleTrialSlots,
-  getServiceSubtypeLabel,
   isDailyMakeup,
 } from "../../types/schedule";
-import { formatTimeRange, sortSchedules } from "../../utils/date";
+import { DAY_MS, getTodayKey, parseDateKey, sortSchedules } from "../../utils/date";
 import {
   formatCurrency,
   getPaidAmount,
@@ -87,18 +79,6 @@ const dailyFilters: Array<{ key: DailyFilterKey; label: string }> = [
 
 type CustomerKind = "bridal" | "daily";
 
-const getCardMeta = (schedule: Schedule) => {
-  const subtypeLabel = getServiceSubtypeLabel(schedule.serviceSubtype);
-
-  if (isDailyMakeup(schedule)) {
-    return subtypeLabel;
-  }
-
-  const outfitLabel = `${schedule.outfitCount ?? 0} 套服装`;
-  const jewelryLabel = getJewelryNeedLabel(schedule.jewelryNeed);
-  return [subtypeLabel, outfitLabel, jewelryLabel].join(" · ");
-};
-
 const getStatusText = (schedule: Schedule) => {
   if (isDailyMakeup(schedule)) {
     return schedule.status === "completed" ? "已完成" : "已预约";
@@ -108,124 +88,35 @@ const getStatusText = (schedule: Schedule) => {
   return stageDisplay[stage].label;
 };
 
-const CustomerCard = ({ schedule }: { schedule: Schedule }) => {
-  const navigate = useNavigate();
-  const remaining = getRemainingAmount(schedule);
-  const paid = getPaidAmount(schedule);
-  const billable = Number(schedule.amount ?? 0);
-  const isSettled = billable > 0 && remaining === 0;
-  const daily = isDailyMakeup(schedule);
-  const serviceTitle = daily
-    ? "预约档期"
-    : getBridalServiceSlotTitle(schedule.serviceSubtype as BridalSubtype);
-  const note = schedule.note?.trim();
-  const trialSlots = getScheduleTrialSlots(schedule);
-  const serviceSlots = getScheduleServiceSlots(schedule);
-  const primaryServiceSlot = getSchedulePrimaryServiceSlot(schedule);
-  const showTrial =
-    !daily && normalizeStage(getScheduleBrideStage(schedule)) === "first_deposit";
-
-  return (
-    <button
-      type="button"
-      className="customer-card tap-card bridal-scroll-card app-surface-card"
-      onClick={() => navigate(`/customer/${schedule.id}`)}
-    >
-      <div className="customer-card__top">
-        <div className="customer-card__avatar">{getInitial(schedule)}</div>
-        <div className="customer-card__identity">
-          <div className="customer-card__name-row">
-            <strong>{getCustomerName(schedule)}</strong>
-            <span
-              className={`customer-card__status${daily ? " is-daily" : ""}`}
-            >
-              {getStatusText(schedule)}
-            </span>
-          </div>
-          <span className="customer-card__subtype">
-            {[getServiceSubtypeLabel(schedule.serviceSubtype), schedule.location]
-              .filter(Boolean)
-              .join(" · ")}
-          </span>
-        </div>
-        <RightOutline className="customer-card__arrow" />
-      </div>
-
-      <div className="customer-card__info">
-        {daily ? (
-          <>
-            <div className="customer-card__line is-primary">
-              <CalendarOutline />
-              <span>{`预约 ${formatCompactDate(schedule.date)}`}</span>
-              <em>{formatDaysUntil(schedule.date)}</em>
-            </div>
-            <div className="customer-card__line">
-              <ClockCircleOutline />
-              <span>{formatTimeRange(schedule)}</span>
-            </div>
-          </>
-        ) : (
-          <>
-            {showTrial ? (
-              <div className="customer-card__schedule-row">
-                <span className="customer-card__schedule-label">试妆</span>
-                <strong>{trialSlots.length ? formatCompactDate(trialSlots[0].date) : "未填日期"}</strong>
-                {trialSlots.length ? <em>{formatDaysUntil(trialSlots[0].date)}</em> : null}
-              </div>
-            ) : null}
-            <div className="customer-card__schedule-row">
-              <span className="customer-card__schedule-label is-main">
-                {serviceTitle}
-              </span>
-              <strong>
-                {serviceSlots.length > 1
-                  ? `${formatCompactDate(primaryServiceSlot?.date ?? schedule.date)} +${serviceSlots.length - 1}`
-                  : formatCompactDate(primaryServiceSlot?.date ?? schedule.date)
-                }
-              </strong>
-              <em>{formatDaysUntil(primaryServiceSlot?.date ?? schedule.date)}</em>
-            </div>
-            {serviceSlots.length > 1 ? (
-              <div className="customer-card__schedule-extra">
-                {serviceSlots.slice(1).map((slot) => (
-                  <span key={slot.id}>
-                    {getScheduleSlotLabel(slot, schedule.serviceSubtype)} · {formatCompactDate(slot.date)}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-          </>
-        )}
-      </div>
-
-      <div className="customer-card__footer">
-        <div className="customer-card__tag-row">
-          <span className="customer-card__mini-tag">
-            <ShopbagOutline />
-            {getCardMeta(schedule)}
-          </span>
-          {!daily && schedule.jewelryItems ? (
-            <span className="customer-card__mini-tag">
-              <StarOutline />
-              {schedule.jewelryItems}
-            </span>
-          ) : null}
-        </div>
-
-        <div className="customer-card__money">
-          <span>{isSettled ? "已结清" : "待收款"}</span>
-          <strong>
-            {isSettled ? formatCurrency(paid) : formatCurrency(remaining)}
-          </strong>
-        </div>
-      </div>
-
-      {note ? <p className="customer-card__note">{note}</p> : null}
-    </button>
-  );
+const getDaysUntilKeyDate = (dateKey: string) => {
+  const diff =
+    parseDateKey(dateKey).getTime() - parseDateKey(getTodayKey()).getTime();
+  return Math.ceil(diff / DAY_MS);
 };
 
-const CustomerRow = ({ schedule }: { schedule: Schedule }) => {
+const formatCountdown = (days: number) => {
+  if (days === 0) return "今天";
+  if (days === 1) return "明天";
+  return `${days} 天后`;
+};
+
+const bridalStageSteps = stageFlow.map((stage) => ({
+  key: stage,
+  label: stageDisplay[stage].shortLabel,
+}));
+
+const dailyStageSteps = [
+  { key: "booked", label: "预约" },
+  { key: "completed", label: "完成" },
+];
+
+const CustomerRow = ({
+  schedule,
+  entranceDelay = 0,
+}: {
+  schedule: Schedule;
+  entranceDelay?: number;
+}) => {
   const navigate = useNavigate();
   const remaining = getRemainingAmount(schedule);
   const paid = getPaidAmount(schedule);
@@ -234,37 +125,129 @@ const CustomerRow = ({ schedule }: { schedule: Schedule }) => {
   const daily = isDailyMakeup(schedule);
   const primaryServiceSlot = getSchedulePrimaryServiceSlot(schedule);
   const keyDate = daily ? schedule.date : (primaryServiceSlot?.date ?? schedule.date);
+  const daysUntil = getDaysUntilKeyDate(keyDate);
+  const upcoming = daysUntil >= 0;
+  const serviceSlotCount = getScheduleServiceSlots(schedule).length;
+  const hasTrial = getScheduleTrialSlots(schedule).length > 0;
+
+  const steps = daily ? dailyStageSteps : bridalStageSteps;
+  const currentStep = daily
+    ? schedule.status === "completed"
+      ? 1
+      : 0
+    : Math.max(
+        stageFlow.indexOf(normalizeStage(getScheduleBrideStage(schedule))),
+        0,
+      );
+  const statusText = getStatusText(schedule);
 
   return (
     <button
       type="button"
       className="customer-row tap-card app-surface-card"
+      style={{ animationDelay: `${entranceDelay}ms` }}
       onClick={() => navigate(`/customer/${schedule.id}`)}
     >
-      <div className="customer-row__avatar">{getInitial(schedule)}</div>
+      <div className={`customer-row__avatar${daily ? " is-daily" : ""}`}>
+        {getInitial(schedule)}
+      </div>
       <div className="customer-row__main">
         <div className="customer-row__topline">
           <strong>{getCustomerName(schedule)}</strong>
-          <span className={`customer-row__status${daily ? " is-daily" : ""}`}>
-            {getStatusText(schedule)}
-          </span>
         </div>
         <div className="customer-row__meta">
           <span>{formatCompactDate(keyDate)}</span>
-          <em>{formatDaysUntil(keyDate)}</em>
+          {!daily && hasTrial && (
+            <span className="customer-row__tag">含试妆</span>
+          )}
+          {!daily && serviceSlotCount > 1 && (
+            <span className="customer-row__tag">{serviceSlotCount} 档跟妆</span>
+          )}
+          {schedule.location ? (
+            <span className="customer-row__location">
+              {schedule.location}
+            </span>
+          ) : null}
+        </div>
+        <div
+          className="customer-row__progress"
+          aria-label={`阶段进度：${statusText}，第 ${currentStep + 1} / ${steps.length} 步`}
+        >
+          <span className="customer-row__progress-track">
+            {steps.map((step, index) => {
+              const dotState =
+                index < currentStep
+                  ? "is-done"
+                  : index === currentStep
+                    ? upcoming
+                      ? "is-current"
+                      : "is-done"
+                    : "is-todo";
+              return (
+                <span key={step.key} className="customer-row__progress-cell">
+                  <span
+                    className={`customer-row__progress-link${
+                      index === 0
+                        ? " is-ghost"
+                        : index <= currentStep
+                          ? " is-done"
+                          : ""
+                    }`}
+                  />
+                  <span
+                    className={`customer-row__progress-dot ${dotState}`}
+                  />
+                  <span
+                    className={`customer-row__progress-link${
+                      index === steps.length - 1
+                        ? " is-ghost"
+                        : index < currentStep
+                          ? " is-done"
+                          : ""
+                    }`}
+                  />
+                </span>
+              );
+            })}
+          </span>
+          <span className="customer-row__progress-labels">
+            {steps.map((step, index) => (
+              <span
+                key={step.key}
+                className={index === currentStep ? "is-current" : undefined}
+              >
+                {step.label}
+              </span>
+            ))}
+          </span>
         </div>
       </div>
-      <div className="customer-row__right">
-        <strong className={isSettled ? "is-settled" : ""}>
-          {formatCurrency(isSettled ? paid : remaining)}
-        </strong>
+      <div className="customer-row__side">
+        {upcoming && !isSettled && schedule.status !== "completed" ? (
+          <span
+            className={`customer-row__countdown${
+              daysUntil <= 7 ? " is-soon" : daysUntil <= 30 ? " is-near" : ""
+            }`}
+          >
+            {formatCountdown(daysUntil)}
+          </span>
+        ) : null}
+        {isSettled ? (
+          <span className="customer-row__settled">已结清</span>
+        ) : billable > 0 ? (
+          <span className="customer-row__amount">
+            <strong>{formatCurrency(remaining)}</strong>
+            <em>待收</em>
+          </span>
+        ) : (
+          <span className="customer-row__unpriced">
+            {paid > 0 ? formatCurrency(paid) : "未报价"}
+          </span>
+        )}
       </div>
     </button>
   );
 };
-
-type Density = "row" | "card";
-const DENSITY_STORAGE_KEY = "customers-density";
 
 export const CustomersPage = () => {
   const navigate = useNavigate();
@@ -279,18 +262,6 @@ export const CustomersPage = () => {
   const [monthPickerVisible, setMonthPickerVisible] = useState(false);
   const initialKind = searchParams.get("kind") === "daily" ? "daily" : "bridal";
   const [activeKind, setActiveKind] = useState<CustomerKind>(initialKind);
-  const [density, setDensity] = useState<Density>(() =>
-    localStorage.getItem(DENSITY_STORAGE_KEY) === "row" ? "row" : "card",
-  );
-
-  const handleDensityChange = (value: Density) => {
-    setDensity(value);
-    try {
-      localStorage.setItem(DENSITY_STORAGE_KEY, value);
-    } catch {
-      // ignore storage failure
-    }
-  };
 
   const handleKindChange = (kind: CustomerKind) => {
     setActiveKind(kind);
@@ -406,6 +377,11 @@ export const CustomersPage = () => {
     return [year, month - 1];
   }, [baselineMonthKey]);
 
+  const totalRemaining = useMemo(
+    () => customers.reduce((sum, schedule) => sum + getRemainingAmount(schedule), 0),
+    [customers],
+  );
+
   const currentFilters = activeKind === "daily" ? dailyFilters : bridalFilters;
   const activeFilter =
     activeKind === "daily" ? activeStatusFilter : activeStageFilter;
@@ -413,30 +389,14 @@ export const CustomersPage = () => {
   return (
     <div className="customers-page">
       <div className="customers-page__header">
-        <div className="customers-page__head-row">
-          <h1 className="customers-page__title">客户进度</h1>
-          <div
-            className="customers-page__density"
-            role="tablist"
-            aria-label="视图密度"
-          >
-            {([
-              ["row", "紧凑"],
-              ["card", "详细"],
-            ] as const).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                role="tab"
-                aria-selected={density === value}
-                className={`customers-page__density-btn${
-                  density === value ? " is-active" : ""
-                }`}
-                onClick={() => handleDensityChange(value)}
-              >
-                {label}
-              </button>
-            ))}
+        <div className="customers-page__titlebar">
+          <div className="customers-page__title-copy">
+            <span className="customers-page__eyebrow">CLIENT PROGRESS</span>
+            <h1 className="customers-page__title">客户进度</h1>
+          </div>
+          <div className="customers-page__headline">
+            <strong>{formatCurrency(totalRemaining)}</strong>
+            <em>筛选内待收款</em>
           </div>
         </div>
         <div
@@ -563,18 +523,14 @@ export const CustomersPage = () => {
 
       <div className="customers-page__scroller">
         {customers.length > 0 ? (
-          <div
-            className={`customers-page__list${
-              density === "row" ? " is-row" : ""
-            }`}
-          >
-            {customers.map((schedule) =>
-              density === "row" ? (
-                <CustomerRow key={schedule.id} schedule={schedule} />
-              ) : (
-                <CustomerCard key={schedule.id} schedule={schedule} />
-              ),
-            )}
+          <div className="customers-page__list">
+            {customers.map((schedule, index) => (
+              <CustomerRow
+                key={schedule.id}
+                schedule={schedule}
+                entranceDelay={Math.min(index * 28, 220)}
+              />
+            ))}
           </div>
         ) : (
           <div className="customers-page__empty app-surface-card">

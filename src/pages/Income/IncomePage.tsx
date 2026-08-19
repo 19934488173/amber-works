@@ -14,6 +14,7 @@ import {
   getMonthKey,
   getPaymentEvents,
   getRemainingAmount,
+  groupSameDayPayments,
 } from "../../utils/statistics";
 import { addMonths, formatYearMonth, toDateKey } from "../../utils/date";
 import type { Schedule, ScheduleDraft } from "../../types/schedule";
@@ -32,6 +33,7 @@ type YearSummary = {
   received: number;
   paymentCount: number;
   pendingAmount: number;
+  projectedAmount: number;
 };
 
 const formatPaymentDate = (date: string) => {
@@ -71,11 +73,18 @@ const createYearSummary = (schedules: Schedule[], year: number): YearSummary => 
     .flatMap((schedule) => getPaymentEvents(schedule))
     .filter((event) => event.date.startsWith(`${yearKey}-`));
 
+  const received = getPositiveTotal(payments);
+  const pendingAmount = yearSchedules.reduce(
+    (sum, schedule) => sum + getRemainingAmount(schedule),
+    0,
+  );
+
   return {
     year,
-    received: getPositiveTotal(payments),
+    received,
     paymentCount: payments.length,
-    pendingAmount: yearSchedules.reduce((sum, schedule) => sum + getRemainingAmount(schedule), 0),
+    pendingAmount,
+    projectedAmount: received + pendingAmount,
   };
 };
 
@@ -217,10 +226,14 @@ export const IncomePage = () => {
 
       <section className="income-page__year-strip">
         <div className="income-page__year-head">
-          <span>{yearSummary.year} 年总览</span>
-          <strong>{formatCurrency(yearSummary.received)}</strong>
+          <span>{yearSummary.year} 年预计总收入</span>
+          <strong>{formatCurrency(yearSummary.projectedAmount)}</strong>
         </div>
         <dl className="income-page__year-metrics">
+          <div>
+            <dt>年已实收</dt>
+            <dd>{formatCurrency(yearSummary.received)}</dd>
+          </div>
           <div>
             <dt>年待收</dt>
             <dd>{formatCurrency(yearSummary.pendingAmount)}</dd>
@@ -238,22 +251,22 @@ export const IncomePage = () => {
         </header>
         {monthSummary.payments.length > 0 ? (
           <div className="income-page__payments">
-            {monthSummary.payments.map((event) => (
+            {groupSameDayPayments(monthSummary.payments).map((group) => (
               <div
-                className={`income-page__payment${event.amount < 0 ? " is-negative" : ""}`}
-                key={`${event.schedule.id}-${event.type}-${event.date}`}
+                className={`income-page__payment${group.amount < 0 ? " is-negative" : ""}`}
+                key={group.key}
               >
                 <div className="income-page__payment-main">
                   <strong className="income-page__payment-name">
-                    {getCustomerName(event.schedule)}
+                    {getCustomerName(group.schedule)}
                   </strong>
                   <span className="income-page__payment-meta">
-                    <em>{event.label}</em>
-                    {formatPaymentDate(event.date)}
+                    <em>{group.label}</em>
+                    {formatPaymentDate(group.date)}
                   </span>
                 </div>
                 <span className="income-page__payment-amount">
-                  {formatSignedCurrency(event.amount)}
+                  {formatSignedCurrency(group.amount)}
                 </span>
               </div>
             ))}
