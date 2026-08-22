@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Button,
   DatePicker,
@@ -31,6 +31,10 @@ import {
 } from "antd-mobile-icons";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppLoading } from "../../components/AppLoading/AppLoading";
+import { AppointmentCardEditor } from "../../components/AppointmentCardEditor/AppointmentCardEditor";
+import { AppointmentReminderCard } from "../../components/AppointmentReminderCard/AppointmentReminderCard";
+import type { AppointmentCardDraft } from "../../components/AppointmentReminderCard/appointmentCardTypes";
+import { ShareImagePreview } from "../../components/ShareImagePreview/ShareImagePreview";
 import {
   fileToDataUrl,
   formatCompactDate,
@@ -83,6 +87,7 @@ import {
 } from "../../utils/statistics";
 import { formatTimeRange } from "../../utils/date";
 import { toDateKey } from "../../utils/date";
+import { createShareImage } from "../../utils/share";
 
 type DetailTileProps = {
   icon: React.ReactNode;
@@ -321,6 +326,14 @@ export const CustomerDetailPage = () => {
   const { schedules, state, updateSchedule, removeSchedule } =
     useScheduleStore();
   const [editing, setEditing] = useState(false);
+  const [isGeneratingCard, setIsGeneratingCard] = useState(false);
+  const [appointmentCardDraft, setAppointmentCardDraft] =
+    useState<AppointmentCardDraft | null>(null);
+  const [cardPreview, setCardPreview] = useState<{
+    dataUrl: string;
+    fileName: string;
+  } | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const schedule = useMemo(
     () => schedules.find((item) => item.id === id),
     [schedules, id]
@@ -490,6 +503,48 @@ export const CustomerDetailPage = () => {
     });
   };
 
+  const openAppointmentCardEditor = () => {
+    if (isGeneratingCard) return;
+    Dialog.show({
+      title: "生成预约提醒卡",
+      content: (
+        <AppointmentCardEditor
+          schedule={schedule}
+          onSubmit={async (draft) => {
+            Dialog.clear();
+            setIsGeneratingCard(true);
+            setAppointmentCardDraft(draft);
+            try {
+              await new Promise((resolve) => window.setTimeout(resolve, 80));
+              if (!cardRef.current) throw new Error("图片模板还没有准备好");
+              const fileName = `KANG-STUDIO-${draft.customerName || "预约提醒卡"}.png`;
+              const outcome = await createShareImage(cardRef.current, fileName, {
+                previewOnDesktop: true,
+              });
+              if (outcome.type === "preview") {
+                setCardPreview({
+                  dataUrl: outcome.dataUrl,
+                  fileName: outcome.fileName,
+                });
+              } else if (outcome.type === "shared") {
+                Toast.show("已打开系统分享");
+              } else {
+                Toast.show("图片已保存");
+              }
+            } catch (error) {
+              if ((error as Error).name !== "AbortError") {
+                Toast.show(error instanceof Error ? error.message : "生成图片失败，请重试");
+              }
+            } finally {
+              setIsGeneratingCard(false);
+            }
+          }}
+        />
+      ),
+      closeOnMaskClick: true,
+    });
+  };
+
   if (editing) {
     return (
       <CustomerProfileForm
@@ -504,6 +559,21 @@ export const CustomerDetailPage = () => {
 
   return (
     <div className="min-h-dvh bg-(--app-bg)">
+      {appointmentCardDraft ? (
+        <div className="share-capture-host" aria-hidden="true">
+          <AppointmentReminderCard
+            ref={cardRef}
+            schedule={schedule}
+            draft={appointmentCardDraft}
+          />
+        </div>
+      ) : null}
+      <ShareImagePreview
+        visible={cardPreview !== null}
+        dataUrl={cardPreview?.dataUrl ?? ""}
+        fileName={cardPreview?.fileName ?? ""}
+        onClose={() => setCardPreview(null)}
+      />
       <NavBar
         className="customer-detail__navbar sticky top-0 z-10 border-b border-(--app-border) bg-white"
         onBack={() => navigate(-1)}
@@ -544,6 +614,14 @@ export const CustomerDetailPage = () => {
                 ) : null}
               </div>
             </div>
+            <button
+              type="button"
+              className="customer-detail__card-link-btn"
+              onClick={openAppointmentCardEditor}
+              disabled={isGeneratingCard}
+            >
+              <span>{isGeneratingCard ? "生成中" : "预约卡"}</span>
+            </button>
             <button
               type="button"
               className="customer-detail__edit-btn"

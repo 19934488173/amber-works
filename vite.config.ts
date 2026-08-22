@@ -17,6 +17,10 @@ export default defineConfig({
         'apple-touch-icon.png',
         'kang-studio-icon-192.png',
         'kang-studio-icon-512.png',
+        'kang-studio-icon-transparent.png',
+        'appointment-confirmation-bg.png',
+        'appointment-confirmation-bg1.png',
+        'appointment-person.png',
       ],
       manifest: {
         name: '个人工作档期台账',

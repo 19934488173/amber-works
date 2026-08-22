@@ -5,6 +5,10 @@ export type ShareImageOutcome =
   | { type: 'shared' }
   | { type: 'preview'; dataUrl: string; fileName: string }
 
+type CreateShareImageOptions = {
+  previewOnDesktop?: boolean
+}
+
 const dataUrlToBlob = async (dataUrl: string) => {
   const response = await fetch(dataUrl)
   return response.blob()
@@ -35,6 +39,7 @@ const downloadBlob = (blob: Blob, fileName: string) => {
 export const createShareImage = async (
   node: HTMLElement,
   fileName: string,
+  options: CreateShareImageOptions = {},
 ): Promise<ShareImageOutcome> => {
   const dataUrl = await toPng(node, {
     cacheBust: true,
@@ -57,6 +62,10 @@ export const createShareImage = async (
         throw error
       }
     }
+  }
+
+  if (options.previewOnDesktop) {
+    return { type: 'preview', dataUrl, fileName }
   }
 
   if (isMobileDevice()) {

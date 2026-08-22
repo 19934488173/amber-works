@@ -1,3 +1,5 @@
+import { getTodayKey } from '../utils/date'
+
 export type ServiceCategory = 'bridal' | 'daily'
 
 export type BridalSubtype = 'engagement' | 'thanks' | 'departure' | 'early_makeup'
@@ -260,6 +262,20 @@ export const getScheduleServiceSlots = (schedule: Pick<Schedule, 'serviceSlots' 
 
 export const getSchedulePrimaryServiceSlot = (schedule: Pick<Schedule, 'serviceSlots' | 'date' | 'startTime' | 'endTime' | 'trialDate' | 'trialStartTime' | 'trialEndTime' | 'serviceSubtype'>) =>
   getScheduleServiceSlots(schedule)[0] ?? getScheduleSlots(schedule)[0]
+
+export const getScheduleCardSlot = (schedule: Pick<Schedule, 'serviceSlots' | 'date' | 'startTime' | 'endTime' | 'trialDate' | 'trialStartTime' | 'trialEndTime' | 'serviceSubtype'>) => {
+  const todayKey = getTodayKey()
+  const upcomingSlot = getScheduleSlots(schedule).find((slot) => slot.date >= todayKey)
+  return upcomingSlot ?? getSchedulePrimaryServiceSlot(schedule)
+}
+
+export const getScheduleCardServiceLine = (schedule: Schedule) => {
+  const slot = getScheduleCardSlot(schedule)
+  const serviceValue = slot
+    ? getScheduleSlotLabel(slot, schedule.serviceSubtype)
+    : getServiceSubtypeLabel(schedule.serviceSubtype)
+  return `${serviceValue} · ${isDailyMakeup(schedule) ? 'Daily Look' : 'Signature Look'}`
+}
 
 export const getScheduleSlotDates = (schedule: Pick<Schedule, 'serviceSlots' | 'date' | 'startTime' | 'endTime' | 'trialDate' | 'trialStartTime' | 'trialEndTime' | 'serviceSubtype'>) => {
   const seen = new Set<string>()

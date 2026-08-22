@@ -700,6 +700,363 @@ p {
   text-align: center;
 }
 
+.appointment-card-editor__summary {
+  display: grid;
+  gap: 3px;
+  margin: -4px 0 16px;
+  border-radius: var(--app-inner-radius);
+  background: var(--app-warm);
+  padding: 12px 14px;
+}
+
+.appointment-card-editor__summary span,
+.appointment-card-editor__summary em {
+  color: var(--app-muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.appointment-card-editor__summary strong {
+  color: var(--app-text);
+  font-size: 15px;
+}
+
+.appointment-card--poster {
+  position: relative;
+  width: 870px;
+  overflow: hidden;
+  color: #564138;
+  font-family: var(--app-serif);
+  line-height: 1.4;
+}
+
+.appointment-card__bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  user-select: none;
+}
+
+.appointment-card__overlay {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 48px 64px 60px;
+}
+
+.appointment-card__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 280px;
+  margin-left: 6px;
+  gap: 10px;
+  text-align: center;
+}
+
+.appointment-card__logo {
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+  user-select: none;
+}
+
+.appointment-card__brand-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.appointment-card__brand-cn {
+  font-size: 28px;
+  letter-spacing: 0.12em;
+}
+.appointment-card__brand-en{
+  font-size: 26px;
+  letter-spacing: 0.12em;
+}
+.appointment-card__hero {
+  width: 340px;
+  margin: 64px 0 0 18px;
+}
+
+.appointment-card__title {
+  margin: 0;
+  font-size: 66px;
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+}
+
+.appointment-card__subtitle {
+  margin: 16px 0 0;
+  color: rgba(86, 65, 56, 0.5);
+  font-size: 17px;
+  letter-spacing: 0.34em;
+}
+
+.appointment-card__tagline {
+  margin: 20px 0 0;
+  color: rgba(151, 120, 105, 0.92);
+  font-size: 31px;
+  font-style: italic;
+  letter-spacing: 0.02em;
+}
+
+.appointment-card__details {
+  margin-top: 48px;
+  padding: 0 18px;
+}
+
+.appointment-card__panel {
+  margin-top: 18px;
+  overflow: hidden;
+  border-radius: 26px;
+  border: 1px solid rgba(190, 168, 152, 0.28);
+  background: rgba(255, 255, 255, 0.77);
+  box-shadow: 0 24px 48px rgba(126, 92, 78, 0.12);
+}
+
+.appointment-card__info-row {
+  display: grid;
+  grid-template-columns: 68px 150px 1px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  min-height: 111px;
+  padding: 20px 24px;
+}
+
+.appointment-card__info-row + .appointment-card__info-row {
+  border-top: 1px solid rgba(215, 201, 190, 0.55);
+}
+
+.appointment-card__info-icon {
+  display: grid;
+  place-items: center;
+  width: 66px;
+  height: 66px;
+  border: 1px solid rgba(188, 163, 147, 0.42);
+  border-radius: 50%;
+  color: rgba(137, 110, 95, 0.9);
+  background: rgba(247, 241, 236, 0.64);
+}
+
+.appointment-card__info-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.appointment-card__info-label {
+  font-size: 22px;
+}
+
+.appointment-card__info-sublabel {
+  color: rgba(126, 100, 88, 0.52);
+  font-size: 14px;
+  letter-spacing: 0.3em;
+}
+
+.appointment-card__info-divider {
+  width: 1px;
+  height: 50px;
+  background: rgba(200, 181, 166, 0.72);
+}
+
+.appointment-card__info-value {
+  min-width: 0;
+  color: rgba(85, 64, 56, 0.98);
+  font-size: 31px;
+  line-height: 1.18;
+  word-break: break-word;
+}
+
+.appointment-card__info-value-line {
+  display: block;
+}
+
+.appointment-card__info-value-line + .appointment-card__info-value-line {
+  margin-top: 6px;
+}
+
+.appointment-card__location {
+  margin-top: 34px;
+  padding: 0 18px;
+}
+
+.appointment-card__section-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.appointment-card__section-head--compact {
+  margin-bottom: 2px;
+}
+
+.appointment-card__section-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(244, 236, 229, 0.88);
+  color: rgba(136, 108, 94, 0.95);
+}
+
+.appointment-card__section-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.appointment-card__section-label {
+  font-size: 24px;
+}
+
+.appointment-card__section-sub {
+  color: rgba(126, 100, 88, 0.52);
+  font-size: 14px;
+  letter-spacing: 0.32em;
+}
+
+.appointment-card__location-line {
+  position: relative;
+  margin: 12px 0 0 74px;
+  padding-left: 20px;
+  color: rgba(86, 65, 56, 0.95);
+  font-size: 22px;
+  line-height: 1.45;
+}
+
+.appointment-card__location-line::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: rgba(176, 154, 138, 0.95);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.appointment-card__reminder {
+  display: flex;
+  gap: 16px;
+  margin: 16px 0 0 18px;
+  border-radius: 20px;
+  background: rgba(239, 232, 224, 0.76);
+  padding: 20px 24px;
+}
+
+.appointment-card__reminder-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  color: rgba(138, 111, 97, 0.9);
+  background: rgba(250, 247, 243, 0.66);
+}
+
+.appointment-card__reminder-copy {
+  min-width: 0;
+}
+
+.appointment-card__reminder-copy p,
+.appointment-card__skincare-intro,
+.appointment-card__tip-copy p,
+.appointment-card__closing {
+  margin: 0;
+  color: rgba(95, 74, 65, 0.9);
+}
+
+.appointment-card__reminder-copy p {
+  margin-top: 8px;
+  font-size: 20px;
+  line-height: 1.55;
+  white-space: pre-line;
+}
+
+.appointment-card__skincare {
+  margin-top: 30px;
+}
+
+.appointment-card__skincare-intro {
+  margin: 14px 0 0 74px;
+  font-size: 20px;
+  line-height: 1.52;
+}
+
+.appointment-card__tip-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 22px;
+  padding: 0 2px;
+}
+
+.appointment-card__tip {
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+  padding: 0 16px;
+}
+
+.appointment-card__tip + .appointment-card__tip {
+  border-left: 1px solid rgba(201, 184, 171, 0.58);
+}
+
+.appointment-card__tip-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: rgba(135, 107, 95, 0.94);
+  background: rgba(248, 242, 236, 0.72);
+}
+
+.appointment-card__tip-copy {
+  min-width: 0;
+}
+
+.appointment-card__tip-copy strong {
+  display: block;
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.appointment-card__tip-copy p {
+  margin-top: 6px;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.appointment-card__footer {
+  margin-top: 28px;
+  text-align: center;
+}
+
+.appointment-card__blessing {
+  margin: 0;
+  color: rgba(145, 114, 101, 0.94);
+  font-family: "Snell Roundhand", "Savoye LET", "Brush Script MT", "Segoe Script", cursive;
+  font-size: 36px;
+  font-style: italic;
+  letter-spacing: 0.04em;
+}
+
+.appointment-card__closing {
+  margin-top: 8px;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
 .calendar-share-card {
   position: relative;
   width: 375px;
@@ -1831,6 +2188,486 @@ p {
 @media (prefers-reduced-motion: reduce) {
   .customer-row {
     animation: none;
+  }
+}
+
+.customer-detail__card-link-btn {
+  min-height: 32px;
+  margin-left: auto;
+  border: 1px solid var(--app-primary);
+  border-radius: var(--app-pill-radius);
+  background: rgba(169, 63, 95, 0.06);
+  color: var(--app-primary);
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.customer-detail__card-link-btn:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.customer-card-page {
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at 100% 0, rgba(179, 135, 79, 0.1), transparent 28%),
+    var(--app-bg);
+  color: var(--app-text);
+}
+
+.customer-card__header,
+.customer-card__main {
+  width: min(100% - 32px, 620px);
+  margin: 0 auto;
+}
+
+.customer-card__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 28px 0 18px;
+}
+
+.customer-card__header-note {
+  color: var(--app-gold);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.customer-card__main {
+  padding-bottom: max(32px, env(safe-area-inset-bottom));
+}
+
+.customer-card__welcome {
+  padding: 18px 2px 22px;
+}
+
+.customer-card__eyebrow,
+.customer-card__section-label {
+  display: block;
+  color: var(--app-gold);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.customer-card__welcome h1 {
+  margin-top: 8px;
+  font-family: var(--app-serif);
+  font-size: clamp(28px, 8vw, 42px);
+  font-weight: 600;
+  line-height: 1.18;
+}
+
+.customer-card__welcome p {
+  margin-top: 8px;
+  color: var(--app-muted);
+  font-size: 14px;
+}
+
+.customer-card__status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 15px;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.customer-card__status strong {
+  color: var(--app-primary);
+  font-size: 13px;
+}
+
+.customer-card__status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--app-primary);
+  box-shadow: 0 0 0 4px rgba(169, 63, 95, 0.12);
+}
+
+.customer-card__hero-card,
+.customer-card__section,
+.customer-card__notice,
+.customer-card__next {
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-card-radius);
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: var(--app-shadow);
+}
+
+.customer-card__hero-card {
+  padding: 20px;
+}
+
+.customer-card__hero-card-top,
+.customer-card__section-heading,
+.customer-card__next {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.customer-card__hero-card h2,
+.customer-card__section-heading h2 {
+  margin-top: 5px;
+  font-family: var(--app-serif);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.customer-card__hero-card p {
+  margin-top: 5px;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.customer-card__hero-mark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid rgba(179, 135, 79, 0.4);
+  border-radius: 12px;
+  color: var(--app-gold);
+  font-family: var(--app-serif);
+  font-size: 23px;
+}
+
+.customer-card__hero-details {
+  display: grid;
+  gap: 14px;
+  margin-top: 22px;
+  padding-top: 17px;
+  border-top: 1px solid var(--app-border);
+}
+
+.customer-card__info-row {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.customer-card__info-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--app-gold-soft);
+  color: var(--app-gold);
+}
+
+.customer-card__info-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.customer-card__info-copy span,
+.customer-card__info-copy em {
+  color: var(--app-muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.customer-card__info-copy strong {
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.customer-card__section {
+  margin-top: 14px;
+  padding: 20px;
+}
+
+.customer-card__section-caption,
+.customer-card__progress-count {
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.customer-card__progress-count {
+  color: var(--app-primary);
+  font-weight: 700;
+}
+
+.customer-card__timeline {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 24px;
+}
+
+.customer-card__timeline-item {
+  min-width: 0;
+  text-align: center;
+}
+
+.customer-card__timeline-track {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.customer-card__timeline-line {
+  height: 2px;
+  flex: 1;
+  background: var(--app-border);
+}
+
+.customer-card__timeline-line.is-active {
+  background: var(--app-primary);
+}
+
+.customer-card__timeline-line.is-hidden {
+  visibility: hidden;
+}
+
+.customer-card__timeline-dot {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  place-items: center;
+  border: 1px solid var(--app-border);
+  border-radius: 50%;
+  background: white;
+  color: var(--app-muted);
+  font-size: 11px;
+}
+
+.customer-card__timeline-dot.is-active {
+  border-color: var(--app-primary);
+  background: var(--app-primary);
+  color: white;
+}
+
+.customer-card__timeline-item > strong {
+  display: block;
+  margin-top: 9px;
+  overflow-wrap: anywhere;
+  color: var(--app-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.customer-card__timeline-item.is-current > strong {
+  color: var(--app-primary);
+}
+
+.customer-card__timeline-item > span:not(.customer-card__timeline-track) {
+  display: block;
+  margin-top: 5px;
+  color: var(--app-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.customer-card__cancelled {
+  display: grid;
+  gap: 4px;
+  margin-top: 20px;
+  padding: 14px;
+  border-radius: var(--app-inner-radius);
+  background: rgba(180, 35, 61, 0.07);
+  color: var(--app-danger);
+}
+
+.customer-card__cancelled span {
+  color: var(--app-muted);
+  font-size: 13px;
+}
+
+.customer-card__schedule-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.customer-card__schedule-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 0;
+  border-top: 1px solid var(--app-border);
+}
+
+.customer-card__schedule-item:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.customer-card__schedule-date {
+  display: grid;
+  gap: 2px;
+}
+
+.customer-card__schedule-date strong {
+  font-size: 15px;
+}
+
+.customer-card__schedule-date span,
+.customer-card__schedule-meta {
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.customer-card__schedule-meta {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+
+.customer-card__schedule-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.customer-card__schedule-meta svg {
+  color: var(--app-gold);
+}
+
+.customer-card__schedule-meta em {
+  color: var(--app-primary);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.customer-card__notice {
+  margin-top: 14px;
+  padding: 18px 20px;
+  background: var(--app-warm);
+}
+
+.customer-card__notice p {
+  margin-top: 9px;
+  white-space: pre-wrap;
+  color: var(--app-text);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.customer-card__next {
+  align-items: center;
+  margin-top: 14px;
+  padding: 18px 20px;
+}
+
+.customer-card__next strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 14px;
+}
+
+.customer-card__contact {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 5px;
+  border-radius: var(--app-pill-radius);
+  background: var(--app-primary);
+  color: white;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.customer-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 22px 2px 8px;
+  color: var(--app-soft-muted);
+  font-size: 10px;
+}
+
+.customer-card__footer span {
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.customer-card__footer em {
+  font-style: normal;
+}
+
+.customer-card__error {
+  display: grid;
+  width: min(100% - 40px, 420px);
+  min-height: 100dvh;
+  align-content: center;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.customer-card__error h1 {
+  margin-top: 40px;
+  font-family: var(--app-serif);
+  font-size: 26px;
+}
+
+.customer-card__error p {
+  margin-top: 8px;
+  color: var(--app-muted);
+  font-size: 14px;
+}
+
+.customer-card__error button {
+  min-height: 44px;
+  margin: 22px auto 0;
+  border: 0;
+  border-radius: var(--app-pill-radius);
+  background: var(--app-primary);
+  color: white;
+  padding: 0 24px;
+  font-weight: 700;
+}
+
+@media (max-width: 420px) {
+  .customer-card__header {
+    padding-top: 20px;
+  }
+
+  .customer-card__header,
+  .customer-card__main {
+    width: min(100% - 24px, 620px);
+  }
+
+  .customer-card__hero-card,
+  .customer-card__section {
+    padding: 16px;
+  }
+
+  .customer-card__timeline-dot {
+    width: 24px;
+    height: 24px;
+    flex-basis: 24px;
+  }
+
+  .customer-card__timeline-item > strong {
+    font-size: 10px;
+  }
+
+  .customer-card__timeline-item > span:not(.customer-card__timeline-track) {
+    font-size: 10px;
+  }
+
+  .customer-card__next {
+    display: grid;
+    gap: 14px;
+  }
+
+  .customer-card__contact {
+    justify-content: center;
   }
 }
 
