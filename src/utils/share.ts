@@ -51,6 +51,45 @@ const waitForImages = async (node: HTMLElement) => {
   )
 }
 
+const hasTransparentPixel = (
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+) => {
+  const corners: Array<[number, number]> = [
+    [0, 0],
+    [width - 1, 0],
+    [0, height - 1],
+    [width - 1, height - 1],
+  ]
+  return corners.some(([x, y]) => ctx.getImageData(x, y, 1, 1).data[3] < 255)
+}
+
+// 自己用 canvas 把图片转成 data URL 内联到节点上，
+// 绕开 html-to-image 在 iOS/PWA 下 fetch 内嵌图片失败导致丢图的问题
+const inlineImageAsDataUrl = (img: HTMLImageElement) => {
+  if (!img.complete || img.naturalWidth === 0 || img.src.startsWith('data:')) return
+  try {
+    const canvas = document.createElement('canvas')
+    canvas.width = img.naturalWidth
+    canvas.height = img.naturalHeight
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.drawImage(img, 0, 0)
+    const transparent = hasTransparentPixel(ctx, canvas.width, canvas.height)
+    img.src = transparent
+      ? canvas.toDataURL('image/png')
+      : canvas.toDataURL('image/jpeg', 0.92)
+  } catch {
+    // 转码失败时保留原始 src，不影响整体导出
+  }
+}
+
+const inlineImages = async (node: HTMLElement) => {
+  await waitForImages(node)
+  Array.from(node.querySelectorAll('img')).forEach(inlineImageAsDataUrl)
+}
+
 const downloadBlob = (blob: Blob, fileName: string) => {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -68,7 +107,7 @@ export const createShareImage = async (
   fileName: string,
   options: CreateShareImageOptions = {},
 ): Promise<ShareImageOutcome> => {
-  await waitForImages(node)
+  await inlineImages(node)
 
   const dataUrl = await toPng(node, {
     pixelRatio: 2,
