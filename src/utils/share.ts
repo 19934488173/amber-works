@@ -41,58 +41,15 @@ const waitForImage = (img: HTMLImageElement, timeoutMs = 10000) =>
     window.setTimeout(finish, timeoutMs)
   })
 
-const waitForImages = async (node: HTMLElement) => {
+// 图片不交给 html-to-image（它在手机上要么内嵌失败丢图，要么内嵌大 base64 后
+// 整个 SVG 无法光栅化），只确保图片加载并解码好，后面由 canvas 直接绘制
+const prepareImages = async (node: HTMLElement) => {
   const images = Array.from(node.querySelectorAll('img'))
   await Promise.all(images.map((img) => waitForImage(img)))
   await Promise.all(
     images
       .filter((img) => img.complete && img.naturalWidth > 0)
       .map((img) => img.decode().catch(() => undefined)),
-  )
-}
-
-const hasTransparentPixel = (
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-) => {
-  const corners: Array<[number, number]> = [
-    [0, 0],
-    [width - 1, 0],
-    [0, height - 1],
-    [width - 1, height - 1],
-  ]
-  return corners.some(([x, y]) => ctx.getImageData(x, y, 1, 1).data[3] < 255)
-}
-
-// 自己用 canvas 把图片转成 data URL 内联到节点上，
-// 绕开 html-to-image 在 iOS/PWA 下 fetch 内嵌图片失败导致丢图的问题
-const inlineImageAsDataUrl = (img: HTMLImageElement) => {
-  if (!img.complete || img.naturalWidth === 0 || img.src.startsWith('data:')) return
-  try {
-    const canvas = document.createElement('canvas')
-    canvas.width = img.naturalWidth
-    canvas.height = img.naturalHeight
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    ctx.drawImage(img, 0, 0)
-    const transparent = hasTransparentPixel(ctx, canvas.width, canvas.height)
-    img.src = transparent
-      ? canvas.toDataURL('image/png')
-      : canvas.toDataURL('image/jpeg', 0.92)
-  } catch {
-    // 转码失败时保留原始 src，不影响整体导出
-  }
-}
-
-const inlineImages = async (node: HTMLElement) => {
-  await waitForImages(node)
-  Array.from(node.querySelectorAll('img')).forEach(inlineImageAsDataUrl)
-  // 换成 data URL 后会重新加载，再等一轮解码，保证后面 canvas 绘制时可用
-  await Promise.all(
-    Array.from(node.querySelectorAll('img')).map((img) =>
-      img.decode().catch(() => undefined),
-    ),
   )
 }
 
@@ -188,11 +145,13 @@ export const createShareImage = async (
   fileName: string,
   options: CreateShareImageOptions = {},
 ): Promise<ShareImageOutcome> => {
-  await inlineImages(node)
+  await prepareImages(node)
 
+  // 克隆时排除所有 <img>，SVG 只负责文字和排版，图片由下面的 canvas 绘制
   const canvas = await toCanvas(node, {
     pixelRatio: SHARE_PIXEL_RATIO,
     backgroundColor: '#f8f2ec',
+    filter: (domNode) => !(domNode instanceof HTMLImageElement),
   })
   drawImagesOnCanvas(node, canvas)
 
