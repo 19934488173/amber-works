@@ -24,6 +24,33 @@ const isMobileDevice = () =>
 const canShareFile = (file: File) =>
   typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })
 
+const waitForImage = (img: HTMLImageElement, timeoutMs = 10000) =>
+  new Promise<void>((resolve) => {
+    if (img.complete && img.naturalWidth > 0) {
+      resolve()
+      return
+    }
+    let settled = false
+    const finish = () => {
+      if (settled) return
+      settled = true
+      resolve()
+    }
+    img.addEventListener('load', finish, { once: true })
+    img.addEventListener('error', finish, { once: true })
+    window.setTimeout(finish, timeoutMs)
+  })
+
+const waitForImages = async (node: HTMLElement) => {
+  const images = Array.from(node.querySelectorAll('img'))
+  await Promise.all(images.map((img) => waitForImage(img)))
+  await Promise.all(
+    images
+      .filter((img) => img.complete && img.naturalWidth > 0)
+      .map((img) => img.decode().catch(() => undefined)),
+  )
+}
+
 const downloadBlob = (blob: Blob, fileName: string) => {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -41,8 +68,9 @@ export const createShareImage = async (
   fileName: string,
   options: CreateShareImageOptions = {},
 ): Promise<ShareImageOutcome> => {
+  await waitForImages(node)
+
   const dataUrl = await toPng(node, {
-    cacheBust: true,
     pixelRatio: 2,
     backgroundColor: '#f8f2ec',
   })

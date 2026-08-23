@@ -19,7 +19,7 @@ export default defineConfig({
         'kang-studio-icon-512.png',
         'kang-studio-icon-transparent.png',
         'appointment-confirmation-bg.png',
-        'appointment-confirmation-bg1.png',
+        'appointment-confirmation-bg1.jpg',
         'appointment-person.png',
       ],
       manifest: {

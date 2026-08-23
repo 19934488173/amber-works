@@ -26,7 +26,7 @@ type Props = {
   draft: AppointmentCardDraft
 }
 
-const bgSrc = `${import.meta.env.BASE_URL}appointment-confirmation-bg1.png`
+const bgSrc = `${import.meta.env.BASE_URL}appointment-confirmation-bg1.jpg`
 const logoSrc = `${import.meta.env.BASE_URL}kang-studio-icon-transparent.png`
 
 const defaultSkincareTips = [
@@ -217,7 +217,7 @@ export const AppointmentReminderCard = forwardRef<HTMLDivElement, Props>(
                 <EnvironmentOutline fontSize={26} />
               </div>
               <div className="appointment-card__section-copy">
-                <span className="appointment-card__section-label">到店信息</span>
+                <span className="appointment-card__section-label">工作室地址</span>
                 <span className="appointment-card__section-sub">LOCATION</span>
               </div>
             </div>
@@ -269,7 +269,7 @@ export const AppointmentReminderCard = forwardRef<HTMLDivElement, Props>(
 
           <footer className="appointment-card__footer">
             <p className="appointment-card__blessing">See you soon.</p>
-            <p className="appointment-card__closing">我们已为您准备妥当。</p>
+            <p className="appointment-card__closing">好的状态，留给重要的时刻。</p>
           </footer>
         </div>
       </div>
