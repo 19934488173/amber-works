@@ -58,6 +58,7 @@ type ImageSnapshot = {
   buffer: HTMLCanvasElement
   naturalWidth: number
   naturalHeight: number
+  layer: 'background' | 'foreground'
   dx: number
   dy: number
   dw: number
@@ -70,6 +71,15 @@ type ImageSnapshot = {
 type PreparedImages = {
   snapshots: ImageSnapshot[]
   restore: () => void
+}
+
+const isBackgroundLikeImage = (rect: DOMRect, nodeRect: DOMRect, style: CSSStyleDeclaration) => {
+  const coversNode =
+    Math.abs(rect.left - nodeRect.left) < 1
+    && Math.abs(rect.top - nodeRect.top) < 1
+    && rect.width >= nodeRect.width * 0.95
+    && rect.height >= nodeRect.height * 0.95
+  return style.position === 'absolute' && coversNode
 }
 
 // SVG foreignObject 里渲染 <img> 在手机上不可靠（丢图甚至导致整张 SVG
@@ -97,6 +107,7 @@ const prepareImages = async (node: HTMLElement): Promise<PreparedImages> => {
         buffer,
         naturalWidth: img.naturalWidth,
         naturalHeight: img.naturalHeight,
+        layer: isBackgroundLikeImage(rect, nodeRect, style) ? 'background' : 'foreground',
         dx: rect.left - nodeRect.left,
         dy: rect.top - nodeRect.top,
         dw: rect.width,
@@ -195,6 +206,25 @@ const drawSnapshots = (canvas: HTMLCanvasElement, snapshots: ImageSnapshot[]) =>
   }
 }
 
+const createLayeredCanvas = (
+  baseCanvas: HTMLCanvasElement,
+  backgroundSnapshots: ImageSnapshot[],
+  foregroundSnapshots: ImageSnapshot[],
+  backgroundColor: string,
+) => {
+  const canvas = document.createElement('canvas')
+  canvas.width = baseCanvas.width
+  canvas.height = baseCanvas.height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return baseCanvas
+  ctx.fillStyle = backgroundColor
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  drawSnapshots(canvas, backgroundSnapshots)
+  ctx.drawImage(baseCanvas, 0, 0)
+  drawSnapshots(canvas, foregroundSnapshots)
+  return canvas
+}
+
 const downloadBlob = (blob: Blob, fileName: string) => {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -220,11 +250,16 @@ export const createShareImage = async (
     // 真实图片由 canvas 原生绘制叠加
     const prepared = await prepareImages(node)
     try {
-      const canvas = await toCanvas(node, {
+      const baseCanvas = await toCanvas(node, {
         pixelRatio: SHARE_PIXEL_RATIO,
-        backgroundColor: '#f8f2ec',
+        backgroundColor: 'transparent',
       })
-      drawSnapshots(canvas, prepared.snapshots)
+      const canvas = createLayeredCanvas(
+        baseCanvas,
+        prepared.snapshots.filter((snapshot) => snapshot.layer === 'background'),
+        prepared.snapshots.filter((snapshot) => snapshot.layer === 'foreground'),
+        '#f8f2ec',
+      )
       dataUrl = canvas.toDataURL('image/png')
     } finally {
       prepared.restore()
