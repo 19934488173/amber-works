@@ -1,4 +1,4 @@
-import { toPng } from 'html-to-image'
+import { toCanvas } from 'html-to-image'
 
 export type ShareImageOutcome =
   | { type: 'downloaded' }
@@ -88,6 +88,87 @@ const inlineImageAsDataUrl = (img: HTMLImageElement) => {
 const inlineImages = async (node: HTMLElement) => {
   await waitForImages(node)
   Array.from(node.querySelectorAll('img')).forEach(inlineImageAsDataUrl)
+  // 换成 data URL 后会重新加载，再等一轮解码，保证后面 canvas 绘制时可用
+  await Promise.all(
+    Array.from(node.querySelectorAll('img')).map((img) =>
+      img.decode().catch(() => undefined),
+    ),
+  )
+}
+
+const SHARE_PIXEL_RATIO = 2
+
+// 按 object-fit 计算图片的裁切源区域
+const getSourceRect = (
+  iw: number,
+  ih: number,
+  bw: number,
+  bh: number,
+  fit: string,
+  posX: number,
+  posY: number,
+) => {
+  if (fit === 'cover' || fit === 'contain') {
+    const scale =
+      fit === 'cover' ? Math.max(bw / iw, bh / ih) : Math.min(bw / iw, bh / ih)
+    const sw = bw / scale
+    const sh = bh / scale
+    return {
+      sx: (iw - sw) * posX,
+      sy: (ih - sh) * posY,
+      sw,
+      sh,
+    }
+  }
+  return { sx: 0, sy: 0, sw: iw, sh: ih }
+}
+
+const toFraction = (token: string) => {
+  const keywordMap: Record<string, number> = {
+    left: 0,
+    top: 0,
+    center: 0.5,
+    right: 1,
+    bottom: 1,
+  }
+  if (token in keywordMap) return keywordMap[token]
+  if (token.endsWith('%')) return Number.parseFloat(token) / 100
+  return 0.5
+}
+
+// 手机上 html-to-image 的 SVG foreignObject 渲染 <img> 会丢图，
+// 这里用 canvas 原生 drawImage 把每张图片直接画到结果画布上
+const drawImagesOnCanvas = (node: HTMLElement, canvas: HTMLCanvasElement) => {
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  const nodeRect = node.getBoundingClientRect()
+  for (const img of Array.from(node.querySelectorAll('img'))) {
+    if (!img.complete || img.naturalWidth === 0) continue
+    const rect = img.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) continue
+    const style = window.getComputedStyle(img)
+    const [posXToken, posYToken] = style.objectPosition.split(/\s+/)
+    const source = getSourceRect(
+      img.naturalWidth,
+      img.naturalHeight,
+      rect.width,
+      rect.height,
+      style.objectFit,
+      toFraction(posXToken),
+      toFraction(posYToken ?? 'center'),
+    )
+    ctx.drawImage(
+      img,
+      source.sx,
+      source.sy,
+      source.sw,
+      source.sh,
+      (rect.left - nodeRect.left) * SHARE_PIXEL_RATIO,
+      (rect.top - nodeRect.top) * SHARE_PIXEL_RATIO,
+      rect.width * SHARE_PIXEL_RATIO,
+      rect.height * SHARE_PIXEL_RATIO,
+    )
+  }
 }
 
 const downloadBlob = (blob: Blob, fileName: string) => {
@@ -109,10 +190,13 @@ export const createShareImage = async (
 ): Promise<ShareImageOutcome> => {
   await inlineImages(node)
 
-  const dataUrl = await toPng(node, {
-    pixelRatio: 2,
+  const canvas = await toCanvas(node, {
+    pixelRatio: SHARE_PIXEL_RATIO,
     backgroundColor: '#f8f2ec',
   })
+  drawImagesOnCanvas(node, canvas)
+
+  const dataUrl = canvas.toDataURL('image/png')
 
   const blob = await dataUrlToBlob(dataUrl)
   const file = new File([blob], fileName, { type: 'image/png' })
